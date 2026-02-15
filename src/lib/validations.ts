@@ -81,6 +81,65 @@ export const activeUpdateSchema = z.object({
     isActive: z.boolean(),
 });
 
+// Program Schemas
+export const programSchema = z.object({
+    name: z.string().min(3, 'Name must be at least 3 characters').max(200),
+    description: z.string().max(2000).optional(),
+    duration: z.string().max(100).optional(),
+    status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']).optional(),
+});
+export const programUpdateSchema = programSchema.partial();
+
+// Cohort Schemas
+export const cohortSchema = z.object({
+    name: z.string().min(3, 'Name must be at least 3 characters').max(200),
+    programId: z.string().cuid('Invalid Program ID'),
+    startDate: z.string().datetime(),
+    endDate: z.string().datetime().optional().nullable(),
+    status: z.enum(['UPCOMING', 'ACTIVE', 'COMPLETED', 'ARCHIVED']).optional(),
+    capacity: z.number().int().min(1).optional(),
+    price: z.number().min(0).optional(),
+    currency: z.string().length(3).optional(),
+});
+export const cohortUpdateSchema = cohortSchema.partial();
+
+// Mentor Profile Schemas
+export const mentorProfileSchema = z.object({
+    specialization: z.string().max(200).optional(),
+    bio: z.string().max(2000).optional(),
+    maxCohorts: z.number().int().min(0).optional(),
+    status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+});
+export const mentorProfileUpdateSchema = mentorProfileSchema.partial();
+
+// Student Profile Schemas
+export const studentProfileSchema = z.object({
+    cohortId: z.string().cuid('Invalid Cohort ID').optional().nullable(),
+    phone: z.string().max(20).optional(),
+    whatsappOptIn: z.boolean().optional(),
+    status: z.enum(['INVITED', 'ACTIVE', 'FLAGGED', 'DROPPED', 'COMPLETED']).optional(),
+});
+export const studentProfileUpdateSchema = studentProfileSchema.partial();
+
+// Message Schemas
+export const messageSchema = z.object({
+    subject: z.string().min(1, 'Subject is required').max(200),
+    body: z.string().min(1, 'Body is required'),
+    channel: z.enum(['EMAIL', 'WHATSAPP', 'SMS']),
+    recipientType: z.enum(['INDIVIDUAL', 'COHORT', 'ALL_STUDENTS', 'ALL_MENTORS', 'CUSTOM']),
+    recipientIds: z.array(z.string()).optional(), // specific for custom recipients
+    scheduledAt: z.string().datetime().optional(),
+});
+
+// Settings Schemas
+export const settingsSchema = z.object({
+    orgName: z.string().min(2).max(100).optional(),
+    supportEmail: z.string().email().optional().nullable(),
+    primaryColor: z.string().regex(/^#([0-9a-f]{3}){1,2}$/i).optional().nullable(),
+    billingSettings: z.record(z.any()).optional(),
+    securitySettings: z.record(z.any()).optional(),
+});
+
 // Helper to extract Zod errors into a friendly format
 export function formatZodErrors(error: z.ZodError) {
     return error.issues.map((e) => ({

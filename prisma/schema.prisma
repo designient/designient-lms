@@ -36,6 +36,55 @@ enum SubmissionStatus {
   RESUBMITTED
 }
 
+enum ProgramStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum CohortStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum StudentStatus {
+  INVITED
+  ACTIVE
+  FLAGGED
+  DROPPED
+  COMPLETED
+}
+
+enum MentorStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum MessageChannel {
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+enum MessageStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum RecipientType {
+  INDIVIDUAL
+  COHORT
+  ALL_STUDENTS
+  ALL_MENTORS
+  CUSTOM
+}
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -58,6 +107,10 @@ model User {
   grades        Grade[]         @relation("Grader")
   assignments   Assignment[]    @relation("AssignmentCreator")
   auditLogs     AuditLog[]
+  studentProfile StudentProfile?
+  mentorProfile MentorProfile?
+  sentMessages  Message[]
+  studentNotes  StudentNote[]
 
   @@map("users")
 }
@@ -222,4 +275,129 @@ model AuditLog {
   @@index([entityType])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model Program {
+  id          String        @id @default(cuid())
+  name        String
+  slug        String        @unique
+  description String?
+  duration    String?
+  status      ProgramStatus @default(DRAFT)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  cohorts     Cohort[]
+
+  @@map("programs")
+}
+
+model Cohort {
+  id        String       @id @default(cuid())
+  name      String
+  programId String       @map("program_id")
+  startDate DateTime     @map("start_date")
+  endDate   DateTime?    @map("end_date")
+  status    CohortStatus @default(UPCOMING)
+  capacity  Int          @default(25)
+  price     Float        @default(0)
+  currency  String       @default("INR")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  program   Program         @relation(fields: [programId], references: [id], onDelete: Cascade)
+  students  StudentProfile[]
+  mentors   MentorProfile[]
+
+  @@index([programId])
+  @@index([status])
+  @@map("cohorts")
+}
+
+model StudentProfile {
+  id             String        @id @default(cuid())
+  userId         String        @unique @map("user_id")
+  cohortId       String?       @map("cohort_id")
+  status         StudentStatus @default(INVITED)
+  phone          String?
+  whatsappOptIn  Boolean       @default(true) @map("whatsapp_opt_in")
+  enrollmentDate DateTime      @default(now()) @map("enrollment_date")
+  
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cohort         Cohort?       @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  notes          StudentNote[]
+
+  @@index([userId])
+  @@index([cohortId])
+  @@index([status])
+  @@map("student_profiles")
+}
+
+model MentorProfile {
+  id             String       @id @default(cuid())
+  userId         String       @unique @map("user_id")
+  status         MentorStatus @default(ACTIVE)
+  specialization String?
+  bio            String?
+  maxCohorts     Int          @default(2) @map("max_cohorts")
+  rating         Float        @default(0)
+  
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cohorts        Cohort[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("mentor_profiles")
+}
+
+model StudentNote {
+  id        String   @id @default(cuid())
+  studentId String   @map("student_id")
+  authorId  String   @map("author_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([authorId])
+  @@map("student_notes")
+}
+
+model Message {
+  id             String         @id @default(cuid())
+  subject        String
+  body           String
+  channel        MessageChannel @default(EMAIL)
+  status         MessageStatus  @default(DRAFT)
+  recipientType  RecipientType  @map("recipient_type")
+  recipientCount Int            @default(0) @map("recipient_count")
+  sentAt         DateTime?      @map("sent_at")
+  scheduledAt    DateTime?      @map("scheduled_at")
+  senderId       String         @map("sender_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  sender         User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([status])
+  @@index([channel])
+  @@map("messages")
+}
+
+model Settings {
+  id               String   @id @default(cuid())
+  orgName          String   @map("org_name")
+  orgSlug          String   @unique @map("org_slug")
+  supportEmail     String?  @map("support_email")
+  primaryColor     String?  @map("primary_color")
+  logoUrl          String?  @map("logo_url")
+  billingSettings  Json?    @map("billing_settings")
+  securitySettings Json?    @map("security_settings")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
 }
