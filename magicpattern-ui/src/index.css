@@ -1,0 +1,300 @@
+/* URL IMPORTS (SUCH AS FONT IMPORTS) SHOULD BE KEPT ABOVE TAILWIND IMPORTS - DO NOT DELETE THIS COMMENT */
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700,900&display=swap');
+
+/* PLEASE NOTE: THESE TAILWIND IMPORTS SHOULD NEVER BE DELETED - DO NOT DELETE THIS COMMENT */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* DO NOT DELETE THE ABOVE TAILWIND IMPORTS, OTHERWISE THE STYLING WILL NOT RENDER AT ALL - DO NOT DELETE THIS COMMENT */
+
+/* ============================================
+   DESIGNIENT DESIGN SYSTEM
+   Premium, Calm, Confident Admin Dashboard
+   Using Satoshi - Modern Geometric Sans-Serif
+   ============================================ */
+
+:root {
+  /* Typography - Satoshi for everything */
+  --font-display: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Border Radius */
+  --radius: 0.5rem;
+  /* ============================================
+     LIGHT MODE - DESIGNIENT COLOR PALETTE
+     Warm, Premium, Confident
+     ============================================ */
+  
+  /* Background - Warm Cream (inspired by designient.com) */
+  --background: 40 33% 98%;
+  --foreground: 240 10% 12%;
+  /* Card - Slightly warmer white */
+  --card: 40 20% 99%;
+  --card-foreground: 240 10% 12%;
+  /* Popover */
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 12%;
+  /* Primary - Designient Purple */
+  --primary: 262 83% 58%;
+  --primary-foreground: 0 0% 100%;
+  /* Secondary - Warm Gray */
+  --secondary: 40 20% 96%;
+  --secondary-foreground: 240 10% 25%;
+  /* Muted - Warm Subtle Background */
+  --muted: 40 20% 96%;
+  --muted-foreground: 240 6% 45%;
+  /* Accent - Designient Yellow/Gold */
+  --accent: 45 93% 58%;
+  --accent-foreground: 240 10% 12%;
+  /* Destructive */
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  /* Borders & Inputs - Warmer tones */
+  --border: 40 15% 89%;
+  --input: 40 15% 89%;
+  --ring: 262 83% 58%;
+  /* Status Colors */
+  --success: 142 71% 45%;
+  --warning: 38 92% 50%;
+}
+/* ============================================
+   DARK MODE - DESIGNIENT COLOR PALETTE
+   Deep, Premium, Sophisticated
+   ============================================ */
+
+.dark {
+  /* Background - Deep Slate with subtle warmth */
+  --background: 240 10% 6%;
+  --foreground: 40 15% 95%;
+  /* Card - Elevated surface with gradient feel */
+  --card: 240 10% 9%;
+  --card-foreground: 40 15% 95%;
+  /* Popover */
+  --popover: 240 10% 8%;
+  --popover-foreground: 40 15% 95%;
+  /* Primary - Designient Purple (brighter for dark mode visibility) */
+  --primary: 262 83% 68%;
+  --primary-foreground: 0 0% 100%;
+  /* Secondary */
+  --secondary: 240 8% 14%;
+  --secondary-foreground: 40 12% 80%;
+  /* Muted */
+  --muted: 240 8% 14%;
+  --muted-foreground: 240 5% 50%;
+  /* Accent - Designient Yellow/Gold */
+  --accent: 45 93% 60%;
+  --accent-foreground: 240 10% 12%;
+  /* Destructive */
+  --destructive: 0 72% 58%;
+  --destructive-foreground: 0 0% 100%;
+  /* Borders & Inputs - Subtle but visible */
+  --border: 240 8% 16%;
+  --input: 240 8% 16%;
+  --ring: 262 83% 68%;
+  /* Status Colors - Brighter for dark mode */
+  --success: 142 71% 55%;
+  --warning: 38 92% 58%;
+}
+/* Smooth theme transition */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+html.dark {
+  color-scheme: dark;
+}
+/* Base Styles */
+* {
+  border-color: hsl(var(--border));
+}
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "ss01", "ss02";
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+/* ============================================
+   TYPOGRAPHY SYSTEM
+   Satoshi - Modern Geometric Sans-Serif
+   ============================================ */
+
+/* Display/Title Typography - Satoshi Bold */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+/* Page titles */
+h1, .h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+h2, .h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+h3, .h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+/* Section titles */
+.section-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+/* Body text */
+p, span, td, th, label, input, textarea, select, button {
+  font-family: var(--font-sans);
+}
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+/* Custom Scrollbar - Adapts to theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+/* Focus Styles - Purple ring */
+*:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+/* Selection - Purple tint */
+::selection {
+  background-color: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
+}
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+/* ============================================
+   DARK MODE ENHANCEMENTS
+   Premium glow effects and elevation
+   ============================================ */
+
+/* Card elevation in dark mode */
+.dark .card-elevated {
+  background: linear-gradient(
+    145deg,
+    hsl(240 10% 10%) 0%,
+    hsl(240 10% 8%) 100%
+  );
+  box-shadow: 
+    0 4px 20px -4px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+/* Glow effects for status indicators */
+.dark .glow-primary {
+  box-shadow: 0 0 15px -3px hsl(var(--primary) / 0.4);
+}
+.dark .glow-success {
+  box-shadow: 0 0 15px -3px rgb(16 185 129 / 0.4);
+}
+.dark .glow-warning {
+  box-shadow: 0 0 15px -3px rgb(245 158 11 / 0.4);
+}
+.dark .glow-danger {
+  box-shadow: 0 0 15px -3px rgb(239 68 68 / 0.4);
+}
+/* Subtle border glow on hover */
+.dark .hover-glow:hover {
+  box-shadow: 
+    0 4px 20px -4px rgba(0, 0, 0, 0.4),
+    0 0 0 1px hsl(var(--primary) / 0.2);
+}
+/* Badge glow effects */
+.dark .badge-glow-warning {
+  box-shadow: 0 0 10px -2px rgb(245 158 11 / 0.3);
+}
+.dark .badge-glow-danger {
+  box-shadow: 0 0 10px -2px rgb(239 68 68 / 0.3);
+}
+.dark .badge-glow-success {
+  box-shadow: 0 0 10px -2px rgb(16 185 129 / 0.3);
+}
+/* ============================================
+   DESIGNIENT UTILITY CLASSES
+   ============================================ */
+
+/* Warm card shadows - adapts to theme */
+.shadow-warm {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+}
+.dark .shadow-warm {
+  box-shadow: 
+    0 2px 8px -2px rgb(0 0 0 / 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+.shadow-warm-md {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+}
+.dark .shadow-warm-md {
+  box-shadow: 
+    0 4px 15px -3px rgb(0 0 0 / 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+/* Elevated shadow for dark mode */
+.shadow-elevated {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+}
+.dark .shadow-elevated {
+  box-shadow: 
+    0 8px 25px -5px rgb(0 0 0 / 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
+}
+/* Gold/Yellow accent utilities */
+.text-gold {
+  color: hsl(var(--accent));
+}
+.bg-gold {
+  background-color: hsl(var(--accent));
+}
+.border-gold {
+  border-color: hsl(var(--accent));
+}
+/* Gradient text for dark mode headings */
+.dark .text-gradient-primary {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(280 80% 70%) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+/* Animated pulse for alerts */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px -2px currentColor;
+  }
+  50% {
+    box-shadow: 0 0 20px -2px currentColor;
+  }
+}
+.dark .animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
