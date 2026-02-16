@@ -75,12 +75,30 @@ export default function StudentLearnPage({ params }: { params: Promise<{ id: str
 
     if (!course) {
         return (
-            <div className="text-center py-16">
-                <h2 className="text-lg font-semibold text-foreground mb-2">Course not found</h2>
-                <p className="text-sm text-muted-foreground mb-4">You may not be enrolled in this course.</p>
-                <Link href="/s/courses" className="text-primary hover:underline text-sm">
-                    Back to My Courses
-                </Link>
+            <div className="text-center py-16 max-w-md mx-auto">
+                <span className="text-4xl mb-4 block">📚</span>
+                <h2 className="text-lg font-semibold text-foreground mb-2">Not Enrolled</h2>
+                <p className="text-sm text-muted-foreground mb-6">You need to enroll in this course to access its content.</p>
+                <div className="flex items-center justify-center gap-3">
+                    <button
+                        onClick={async () => {
+                            const res = await api.post(`/courses/${id}/enroll`);
+                            if (res.success) {
+                                toast({ title: 'Enrolled!', description: 'Welcome to the course!', variant: 'success' });
+                                setLoading(true);
+                                fetchCourse();
+                            } else {
+                                toast({ title: 'Error', description: 'Unable to enroll. Please try again.', variant: 'error' });
+                            }
+                        }}
+                        className="inline-flex items-center px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                    >
+                        Enroll Now
+                    </button>
+                    <Link href="/s/catalog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        Browse Catalog
+                    </Link>
+                </div>
             </div>
         );
     }
@@ -129,20 +147,19 @@ export default function StudentLearnPage({ params }: { params: Promise<{ id: str
                                     <button
                                         key={lesson.id}
                                         onClick={() => setActiveLesson(lesson)}
-                                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm transition-colors ${
-                                            isActive
+                                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm transition-colors ${isActive
                                                 ? 'bg-primary/10 text-primary font-medium'
                                                 : lesson.isCompleted
-                                                  ? 'text-muted-foreground hover:bg-muted/50'
-                                                  : 'text-foreground hover:bg-muted/50'
-                                        }`}
+                                                    ? 'text-muted-foreground hover:bg-muted/50'
+                                                    : 'text-foreground hover:bg-muted/50'
+                                            }`}
                                     >
                                         <span className="text-xs flex-shrink-0">
                                             {lesson.isCompleted
                                                 ? '✅'
                                                 : lesson.contentType === 'VIDEO'
-                                                  ? '🎥'
-                                                  : '📝'}
+                                                    ? '🎥'
+                                                    : '📝'}
                                         </span>
                                         <span className="truncate">{lesson.title}</span>
                                     </button>

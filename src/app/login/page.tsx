@@ -49,8 +49,10 @@ export default function LoginPage() {
                 variant: 'success',
             });
 
-            if (role === 'ADMIN' || role === 'INSTRUCTOR') {
+            if (role === 'ADMIN') {
                 router.push('/dashboard');
+            } else if (role === 'INSTRUCTOR') {
+                router.push('/m/dashboard');
             } else {
                 router.push('/s/dashboard');
             }

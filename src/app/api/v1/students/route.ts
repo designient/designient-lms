@@ -121,6 +121,33 @@ export const POST = withAuth(
                 include: { user: true, cohort: true }
             });
 
+            // Auto-enroll in cohort courses if assigned to a cohort
+            if (parsed.data.cohortId) {
+                const cohortCourses = await prisma.cohortCourse.findMany({
+                    where: { cohortId: parsed.data.cohortId },
+                    select: { courseId: true },
+                });
+
+                if (cohortCourses.length > 0) {
+                    const existingEnrollments = await prisma.enrollment.findMany({
+                        where: {
+                            userId: targetUserId,
+                            courseId: { in: cohortCourses.map(cc => cc.courseId) },
+                        },
+                        select: { courseId: true },
+                    });
+                    const enrolledCourseIds = new Set(existingEnrollments.map(e => e.courseId));
+
+                    const newEnrollments = cohortCourses
+                        .filter(cc => !enrolledCourseIds.has(cc.courseId))
+                        .map(cc => ({ userId: targetUserId, courseId: cc.courseId }));
+
+                    if (newEnrollments.length > 0) {
+                        await prisma.enrollment.createMany({ data: newEnrollments });
+                    }
+                }
+            }
+
             await logAudit(user.id, 'STUDENT_INVITED', 'StudentProfile', student.id);
 
             return apiSuccess(student, 201);

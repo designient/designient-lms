@@ -37,17 +37,27 @@ export async function proxy(req: NextRequest) {
         return NextResponse.redirect(loginUrl);
     }
 
-    // Student trying to access admin routes
-    if (ADMIN_ROUTES.some((route) => pathname.startsWith(route)) && role === 'STUDENT') {
+    // Student trying to access admin or mentor routes
+    if (
+        (ADMIN_ROUTES.some((route) => pathname.startsWith(route)) || pathname.startsWith('/m/')) &&
+        role === 'STUDENT'
+    ) {
         return NextResponse.redirect(new URL('/s/dashboard', req.url));
     }
 
-    // Admin/Instructor trying to access student routes
-    if (
-        STUDENT_ROUTES.some((route) => pathname.startsWith(route)) &&
-        (role === 'ADMIN' || role === 'INSTRUCTOR')
-    ) {
+    // Admin trying to access student routes
+    if (STUDENT_ROUTES.some((route) => pathname.startsWith(route)) && role === 'ADMIN') {
         return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+
+    // Instructor trying to access student routes
+    if (STUDENT_ROUTES.some((route) => pathname.startsWith(route)) && role === 'INSTRUCTOR') {
+        return NextResponse.redirect(new URL('/m/dashboard', req.url));
+    }
+
+    // Instructor trying to access admin-only routes (redirect to mentor portal)
+    if (ADMIN_ROUTES.some((route) => pathname.startsWith(route)) && role === 'INSTRUCTOR') {
+        return NextResponse.redirect(new URL('/m/dashboard', req.url));
     }
 
     return NextResponse.next();

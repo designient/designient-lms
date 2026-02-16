@@ -5,17 +5,19 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard,
+    Layers,
     BookOpen,
+    GraduationCap,
     FileText,
-    BarChart3,
+    ClipboardCheck,
+    HelpCircle,
     User,
     LogOut,
     PanelLeftClose,
     PanelLeft,
-    Search,
-    ClipboardCheck,
-    Kanban,
-    HelpCircle,
+    Video,
+    FolderOpen,
+    Library,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useBrand } from '@/components/BrandProvider';
@@ -39,30 +41,32 @@ function Tooltip({ label, show, children }: TooltipProps) {
 }
 
 const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/s/dashboard' },
-    { icon: BookOpen, label: 'My Courses', href: '/s/courses' },
-    { icon: FileText, label: 'Assignments', href: '/s/assignments' },
-    { icon: Kanban, label: 'Task Board', href: '/s/tasks' },
-    { icon: BarChart3, label: 'Grades', href: '/s/grades' },
-    { icon: ClipboardCheck, label: 'Attendance', href: '/s/attendance' },
-    { icon: HelpCircle, label: 'Quizzes', href: '/s/quizzes' },
-    { icon: Search, label: 'Catalog', href: '/s/catalog' },
-    { icon: User, label: 'Profile', href: '/s/profile' },
+    { icon: LayoutDashboard, label: 'Dashboard', href: '/m/dashboard' },
+    { icon: Layers, label: 'My Cohorts', href: '/m/cohorts' },
+    { icon: BookOpen, label: 'My Courses', href: '/m/courses' },
+    { icon: GraduationCap, label: 'My Students', href: '/m/students' },
+    { icon: ClipboardCheck, label: 'Attendance', href: '/m/attendance' },
+    { icon: FileText, label: 'Submissions', href: '/m/submissions' },
+    { icon: Video, label: 'Recordings', href: '/m/recordings' },
+    { icon: FolderOpen, label: 'Materials', href: '/m/materials' },
+    { icon: HelpCircle, label: 'Quizzes', href: '/m/quizzes' },
+    { icon: Library, label: 'Question Bank', href: '/m/question-bank' },
+    { icon: User, label: 'Profile', href: '/m/profile' },
 ];
 
-interface StudentSidebarProps {
+interface MentorSidebarProps {
     isCollapsed: boolean;
     onToggle: () => void;
     userName?: string;
     userEmail?: string;
 }
 
-export function StudentSidebar({
+export function MentorSidebar({
     isCollapsed,
     onToggle,
     userName,
     userEmail,
-}: StudentSidebarProps) {
+}: MentorSidebarProps) {
     const pathname = usePathname();
     const { logoUrl, orgName } = useBrand();
 
@@ -73,7 +77,7 @@ export function StudentSidebar({
             .join('')
             .toUpperCase()
             .slice(0, 2)
-        : 'ST';
+        : 'MT';
 
     return (
         <aside
@@ -105,14 +109,14 @@ export function StudentSidebar({
                 <div>
                     {!isCollapsed && (
                         <h3 className="px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                            Learning
+                            Teaching
                         </h3>
                     )}
                     <nav className="space-y-0.5">
                         {navItems.map((item) => {
                             const isActive =
                                 pathname === item.href ||
-                                (item.href !== '/s/dashboard' &&
+                                (item.href !== '/m/dashboard' &&
                                     pathname.startsWith(item.href));
                             return (
                                 <Tooltip
@@ -162,13 +166,13 @@ export function StudentSidebar({
                 <div
                     className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-2'}`}
                 >
-                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold text-xs shadow-sm flex-shrink-0">
+                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-xs shadow-sm flex-shrink-0">
                         {initials}
                     </div>
                     {!isCollapsed && (
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-foreground truncate">
-                                {userName || 'Student'}
+                                {userName || 'Mentor'}
                             </p>
                             <p className="text-[10px] text-muted-foreground truncate">
                                 {userEmail || ''}

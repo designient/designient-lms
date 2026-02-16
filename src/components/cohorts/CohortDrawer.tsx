@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { DrawerSection, DrawerDivider } from '../ui/Drawer';
@@ -33,6 +33,14 @@ export interface StudentSummary {
     status: 'Invited' | 'Active' | 'Flagged' | 'Dropped' | 'Completed';
 }
 
+export interface CourseSummary {
+    id: string;
+    title: string;
+    level: string;
+    modules: number;
+    enrollments: number;
+}
+
 interface CohortDrawerProps {
     cohort: Cohort;
     onEdit: () => void;
@@ -45,6 +53,13 @@ interface CohortDrawerProps {
     onRestore?: () => void;
     availableMentors?: MentorForAssignment[];
     students?: StudentSummary[];
+    // API-backed course + mentor assignment
+    cohortCourses?: CourseSummary[];
+    allCourses?: CourseSummary[];
+    onAssignMentor?: (mentorId: string) => Promise<void>;
+    onRemoveMentor?: (mentorId: string) => Promise<void>;
+    onAssignCourse?: (courseId: string) => Promise<void>;
+    onRemoveCourse?: (courseId: string) => Promise<void>;
 }
 
 const getStatusVariant = (status: StudentSummary['status']) => {
@@ -91,29 +106,81 @@ export function CohortDrawer({
     onRestore,
     availableMentors = [],
     students = [],
+    cohortCourses = [],
+    allCourses = [],
+    onAssignMentor,
+    onRemoveMentor,
+    onAssignCourse,
+    onRemoveCourse,
 }: CohortDrawerProps) {
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
     const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+    const [showAddCourse, setShowAddCourse] = useState(false);
+    const [isMentorAssigning, setIsMentorAssigning] = useState(false);
+    const [isCourseAssigning, setIsCourseAssigning] = useState(false);
 
-    const handleAssignMentor = (mentorId: string) => {
-        const mentor = availableMentors.find((m) => m.id === mentorId);
-        if (!mentor || !onUpdateCohort) return;
-        onUpdateCohort({
-            ...cohort,
-            mentors: [...cohort.mentors, mentor.name]
-        });
+    const handleAssignMentor = async (mentorId: string) => {
+        if (onAssignMentor) {
+            setIsMentorAssigning(true);
+            try {
+                await onAssignMentor(mentorId);
+            } finally {
+                setIsMentorAssigning(false);
+            }
+        } else {
+            // Fallback to local state if no API handler
+            const mentor = availableMentors.find((m) => m.id === mentorId);
+            if (!mentor || !onUpdateCohort) return;
+            onUpdateCohort({
+                ...cohort,
+                mentors: [...cohort.mentors, mentor.name]
+            });
+        }
     };
 
-    const handleRemoveMentor = (mentorName: string) => {
-        if (!onUpdateCohort) return;
-        onUpdateCohort({
-            ...cohort,
-            mentors: cohort.mentors.filter((m) => m !== mentorName)
-        });
+    const handleRemoveMentor = async (mentorId: string, mentorName: string) => {
+        if (onRemoveMentor) {
+            setIsMentorAssigning(true);
+            try {
+                await onRemoveMentor(mentorId);
+            } finally {
+                setIsMentorAssigning(false);
+            }
+        } else {
+            if (!onUpdateCohort) return;
+            onUpdateCohort({
+                ...cohort,
+                mentors: cohort.mentors.filter((m) => m !== mentorName)
+            });
+        }
     };
+
+    const handleAssignCourse = async (courseId: string) => {
+        if (!onAssignCourse) return;
+        setIsCourseAssigning(true);
+        try {
+            await onAssignCourse(courseId);
+            setShowAddCourse(false);
+        } finally {
+            setIsCourseAssigning(false);
+        }
+    };
+
+    const handleRemoveCourse = async (courseId: string) => {
+        if (!onRemoveCourse) return;
+        setIsCourseAssigning(true);
+        try {
+            await onRemoveCourse(courseId);
+        } finally {
+            setIsCourseAssigning(false);
+        }
+    };
+
+    const assignedCourseIds = new Set(cohortCourses.map(c => c.id));
+    const availableCoursesForAdd = allCourses.filter(c => !assignedCourseIds.has(c.id));
 
     const handleArchiveConfirm = () => {
         if (onArchive) onArchive();
@@ -245,10 +312,11 @@ export function CohortDrawer({
                                         {mentor.charAt(0)}
                                     </div>
                                     {mentor}
-                                    {onUpdateCohort && (
+                                    {(onRemoveMentor || onUpdateCohort) && (
                                         <button
-                                            onClick={() => handleRemoveMentor(mentor)}
+                                            onClick={() => handleRemoveMentor(cohort.mentorIds?.[idx] || '', mentor)}
                                             className="p-0.5 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                                            disabled={isMentorAssigning}
                                         >
                                             <X className="h-3 w-3" />
                                         </button>
@@ -350,6 +418,96 @@ export function CohortDrawer({
                         Manage Students
                         <ArrowRight className="h-4 w-4" />
                     </button>
+                </div>
+            </DrawerSection>
+
+            <DrawerDivider />
+
+            {/* Courses Section */}
+            <DrawerSection title="Assigned Courses">
+                <div className="space-y-3">
+                    {cohortCourses.length > 0 ? (
+                        <div className="space-y-2">
+                            {cohortCourses.map((course) => (
+                                <div
+                                    key={course.id}
+                                    className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/40 transition-colors group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-500/10 flex items-center justify-center text-xs font-semibold text-blue-700">
+                                            <BookOpen className="h-3.5 w-3.5" />
+                                        </div>
+                                        <div>
+                                            <span className="text-sm font-medium text-foreground block">
+                                                {course.title}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {course.modules} modules · {course.level}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {onRemoveCourse && (
+                                        <button
+                                            onClick={() => handleRemoveCourse(course.id)}
+                                            className="p-0.5 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                                            disabled={isCourseAssigning}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground italic px-3">
+                            No courses assigned to this cohort
+                        </p>
+                    )}
+
+                    {onAssignCourse && (
+                        <>
+                            {!showAddCourse ? (
+                                <Button
+                                    onClick={() => setShowAddCourse(true)}
+                                    className="w-full justify-start gap-3"
+                                    variant="outline"
+                                    size="sm"
+                                >
+                                    <BookOpen className="h-4 w-4" />
+                                    Add Course
+                                </Button>
+                            ) : (
+                                <div className="p-3 rounded-lg bg-muted/30 border border-border/50 space-y-2">
+                                    <p className="text-xs font-medium text-muted-foreground">Select a course to assign:</p>
+                                    {availableCoursesForAdd.length > 0 ? (
+                                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                                            {availableCoursesForAdd.map((course) => (
+                                                <button
+                                                    key={course.id}
+                                                    onClick={() => handleAssignCourse(course.id)}
+                                                    disabled={isCourseAssigning}
+                                                    className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-primary/5 transition-colors disabled:opacity-50"
+                                                >
+                                                    {course.title}
+                                                    <span className="text-xs text-muted-foreground ml-2">({course.level})</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground italic">All courses already assigned</p>
+                                    )}
+                                    <Button
+                                        onClick={() => setShowAddCourse(false)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full"
+                                    >
+                                        Cancel
+                                    </Button>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             </DrawerSection>
 

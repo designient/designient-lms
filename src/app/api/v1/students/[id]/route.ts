@@ -63,6 +63,33 @@ export const PUT = withAuth(
                 data: parsed.data,
             });
 
+            // Auto-enroll in new cohort's courses if cohort changed
+            if (parsed.data.cohortId && parsed.data.cohortId !== existing.cohortId) {
+                const cohortCourses = await prisma.cohortCourse.findMany({
+                    where: { cohortId: parsed.data.cohortId },
+                    select: { courseId: true },
+                });
+
+                if (cohortCourses.length > 0) {
+                    const existingEnrollments = await prisma.enrollment.findMany({
+                        where: {
+                            userId: existing.userId,
+                            courseId: { in: cohortCourses.map(cc => cc.courseId) },
+                        },
+                        select: { courseId: true },
+                    });
+                    const enrolledCourseIds = new Set(existingEnrollments.map(e => e.courseId));
+
+                    const newEnrollments = cohortCourses
+                        .filter(cc => !enrolledCourseIds.has(cc.courseId))
+                        .map(cc => ({ userId: existing.userId, courseId: cc.courseId }));
+
+                    if (newEnrollments.length > 0) {
+                        await prisma.enrollment.createMany({ data: newEnrollments });
+                    }
+                }
+            }
+
             await logAudit(user.id, 'STUDENT_UPDATED', 'StudentProfile', id, parsed.data as Record<string, unknown>);
 
             return apiSuccess(updatedStudent);

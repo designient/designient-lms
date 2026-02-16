@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { CohortsTable } from '@/components/cohorts/CohortsTable';
-import { CohortDrawer, StudentSummary } from '@/components/cohorts/CohortDrawer';
+import { CohortDrawer, StudentSummary, CourseSummary } from '@/components/cohorts/CohortDrawer';
 import {
     CreateCohortDrawer,
     CohortFormData,
@@ -90,6 +90,8 @@ export default function CohortsPage() {
     const [mentorOptionsList, setMentorOptionsList] = useState<{ value: string; label: string; role?: string }[]>([]);
     const [availableMentorsForDrawer, setAvailableMentorsForDrawer] = useState<MentorForAssignment[]>([]);
     const [cohortStudents, setCohortStudents] = useState<StudentSummary[]>([]);
+    const [cohortCourses, setCohortCourses] = useState<CourseSummary[]>([]);
+    const [allCourses, setAllCourses] = useState<CourseSummary[]>([]);
     const [selectedCohort, setSelectedCohort] = useState<Cohort | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [drawerMode, setDrawerMode] = useState<DrawerMode>('view');
@@ -106,10 +108,11 @@ export default function CohortsPage() {
     const fetchCohorts = useCallback(async () => {
         try {
             setIsLoading(true);
-            const [cohortsRes, programsRes, mentorsRes] = await Promise.all([
+            const [cohortsRes, programsRes, mentorsRes, coursesRes] = await Promise.all([
                 apiClient.get<{ cohorts: ApiCohort[] }>('/api/v1/cohorts?limit=50'),
                 apiClient.get<{ programs: Array<{ id: string; name: string }> }>('/api/v1/programs?limit=50').catch(() => ({ programs: [] })),
                 apiClient.get<{ mentors: Array<{ id: string; name: string; specialization?: string }> }>('/api/v1/mentors?limit=50').catch(() => ({ mentors: [] })),
+                apiClient.get<{ courses: Array<{ id: string; title: string; level: string; _count?: { modules: number; enrollments: number } }> }>('/api/v1/courses?limit=50').catch(() => ({ courses: [] })),
             ]);
             setCohorts(cohortsRes.cohorts.map(transformCohort));
             setProgramOptions(programsRes.programs.map(p => ({ value: p.id, label: p.name })));
@@ -122,6 +125,15 @@ export default function CohortsPage() {
                     currentLoad: m.cohortCount ?? 0,
                     maxCohorts: m.maxCohorts ?? 5,
                     status: (m.status === 'ACTIVE' ? 'Active' : 'Inactive') as 'Active' | 'Inactive',
+                }))
+            );
+            setAllCourses(
+                (coursesRes.courses as Array<{ id: string; title: string; level: string; _count?: { modules: number; enrollments: number } }>).map(c => ({
+                    id: c.id,
+                    title: c.title,
+                    level: c.level,
+                    modules: c._count?.modules ?? 0,
+                    enrollments: c._count?.enrollments ?? 0,
                 }))
             );
         } catch (error) {
@@ -173,16 +185,28 @@ export default function CohortsPage() {
         setDrawerMode('view');
         setIsDrawerOpen(true);
         setCohortStudents([]);
+        setCohortCourses([]);
         try {
-            const res = await apiClient.get<{ students: Array<{ id: string; name: string; status: string }> }>(`/api/v1/students?cohortId=${cohort.id}&limit=10`);
+            const [studentsRes, coursesRes] = await Promise.all([
+                apiClient.get<{ students: Array<{ id: string; name: string; status: string }> }>(`/api/v1/students?cohortId=${cohort.id}&limit=10`),
+                apiClient.get<{ courses: Array<{ id: string; title: string; slug: string; level: string; _count?: { modules: number; enrollments: number } }> }>(`/api/v1/cohorts/${cohort.id}/courses`).catch(() => ({ courses: [] })),
+            ]);
             const statusMap: Record<string, StudentSummary['status']> = { ACTIVE: 'Active', INVITED: 'Invited', FLAGGED: 'Flagged', DROPPED: 'Dropped', COMPLETED: 'Completed' };
-            setCohortStudents(res.students.map(s => ({
+            setCohortStudents(studentsRes.students.map(s => ({
                 id: s.id,
                 name: s.name || 'Unknown',
                 status: statusMap[s.status] || 'Active',
             })));
+            setCohortCourses(coursesRes.courses.map((c: Record<string, unknown>) => ({
+                id: c.id as string,
+                title: c.title as string,
+                level: c.level as string,
+                modules: ((c._count as Record<string, number>)?.modules) ?? 0,
+                enrollments: ((c._count as Record<string, number>)?.enrollments) ?? 0,
+            })));
         } catch {
             setCohortStudents([]);
+            setCohortCourses([]);
         }
     };
 
@@ -517,6 +541,41 @@ export default function CohortsPage() {
                             onMarkComplete={handleMarkComplete}
                             availableMentors={availableMentorsForDrawer}
                             students={cohortStudents}
+                            cohortCourses={cohortCourses}
+                            allCourses={allCourses}
+                            onAssignMentor={async (mentorId: string) => {
+                                await apiClient.post(`/api/v1/cohorts/${selectedCohort.id}/mentors`, { mentorId });
+                                await fetchCohorts();
+                                // Refresh drawer
+                                const updatedCohort = cohorts.find(c => c.id === selectedCohort.id);
+                                if (updatedCohort) setSelectedCohort(updatedCohort);
+                                toast({ title: 'Mentor Assigned', description: 'Mentor has been assigned to this cohort.', variant: 'success' });
+                            }}
+                            onRemoveMentor={async (mentorId: string) => {
+                                await apiClient.delete(`/api/v1/cohorts/${selectedCohort.id}/mentors`, { mentorId });
+                                await fetchCohorts();
+                                const updatedCohort = cohorts.find(c => c.id === selectedCohort.id);
+                                if (updatedCohort) setSelectedCohort(updatedCohort);
+                                toast({ title: 'Mentor Removed', description: 'Mentor has been removed from this cohort.', variant: 'success' });
+                            }}
+                            onAssignCourse={async (courseId: string) => {
+                                await apiClient.post(`/api/v1/cohorts/${selectedCohort.id}/courses`, { courseId });
+                                // Refresh courses list
+                                const coursesRes = await apiClient.get<{ courses: Array<{ id: string; title: string; level: string; _count?: { modules: number; enrollments: number } }> }>(`/api/v1/cohorts/${selectedCohort.id}/courses`);
+                                setCohortCourses(coursesRes.courses.map((c: Record<string, unknown>) => ({
+                                    id: c.id as string,
+                                    title: c.title as string,
+                                    level: c.level as string,
+                                    modules: ((c._count as Record<string, number>)?.modules) ?? 0,
+                                    enrollments: ((c._count as Record<string, number>)?.enrollments) ?? 0,
+                                })));
+                                toast({ title: 'Course Assigned', description: 'Course assigned and students auto-enrolled.', variant: 'success' });
+                            }}
+                            onRemoveCourse={async (courseId: string) => {
+                                await apiClient.delete(`/api/v1/cohorts/${selectedCohort.id}/courses`, { courseId });
+                                setCohortCourses(prev => prev.filter(c => c.id !== courseId));
+                                toast({ title: 'Course Removed', description: 'Course has been removed from this cohort.', variant: 'success' });
+                            }}
                         />
                     )}
 

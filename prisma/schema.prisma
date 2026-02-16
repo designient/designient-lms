@@ -104,6 +104,27 @@ enum BillingCycle {
   YEARLY
 }
 
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -126,10 +147,15 @@ model User {
   grades        Grade[]         @relation("Grader")
   assignments   Assignment[]    @relation("AssignmentCreator")
   auditLogs     AuditLog[]
-  studentProfile StudentProfile?
-  mentorProfile MentorProfile?
-  sentMessages  Message[]
-  studentNotes  StudentNote[]
+  studentProfile  StudentProfile?
+  mentorProfile   MentorProfile?
+  sentMessages    Message[]
+  studentNotes    StudentNote[]
+  assignmentTasks AssignmentTask[]
+  quizAttempts    QuizAttempt[]
+  questionBank    QuestionBank[]
+  markedAttendances Attendance[] @relation("AttendanceMarker")
+  studentAttendances Attendance[] @relation("AttendanceStudent")
 
   @@map("users")
 }
@@ -145,9 +171,14 @@ model Course {
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
-  creator     User        @relation("CourseCreator", fields: [createdBy], references: [id])
-  modules     Module[]
-  enrollments Enrollment[]
+  creator       User             @relation("CourseCreator", fields: [createdBy], references: [id])
+  modules       Module[]
+  enrollments   Enrollment[]
+  cohortCourses CohortCourse[]
+  recordings    ClassRecording[]
+  materials     ClassMaterial[]
+  sessions      ClassSession[]
+  quizzes       Quiz[]
   assignments Assignment[]
 
   @@index([createdBy])
@@ -164,8 +195,10 @@ model Module {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lessons   Lesson[]
+  course     Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons    Lesson[]
+  recordings ClassRecording[]
+  materials  ClassMaterial[]
   assignments Assignment[]
 
   @@index([courseId])
@@ -237,6 +270,7 @@ model Assignment {
   module      Module?  @relation(fields: [moduleId], references: [id], onDelete: SetNull)
   creator     User     @relation("AssignmentCreator", fields: [createdBy], references: [id])
   submissions Submission[]
+  tasks       AssignmentTask[]
 
   @@index([courseId])
   @@index([moduleId])
@@ -328,6 +362,9 @@ model Cohort {
 
   program   Program         @relation(fields: [programId], references: [id], onDelete: Cascade)
   students  StudentProfile[]
+  courses   CohortCourse[]
+  sessions  ClassSession[]
+  quizzes   Quiz[]
   mentors   MentorProfile[]
 
   @@index([programId])
@@ -441,4 +478,204 @@ model Subscription {
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
   @@map("subscriptions")
+}
+
+model CohortCourse {
+  id        String   @id @default(cuid())
+  cohortId  String   @map("cohort_id")
+  courseId  String   @map("course_id")
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  cohort    Cohort   @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([cohortId, courseId])
+  @@map("cohort_courses")
+}
+
+model ClassSession {
+  id          String    @id @default(cuid())
+  cohortId    String    @map("cohort_id")
+  courseId    String    @map("course_id")
+  title       String
+  scheduledAt DateTime  @map("scheduled_at")
+  duration    Int       @default(60)
+  notes       String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  cohort      Cohort       @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  attendances Attendance[]
+
+  @@index([cohortId])
+  @@index([courseId])
+  @@index([scheduledAt])
+  @@map("class_sessions")
+}
+
+model Attendance {
+  id        String           @id @default(cuid())
+  sessionId String           @map("session_id")
+  studentId String           @map("student_id")
+  status    AttendanceStatus @default(ABSENT)
+  markedBy  String           @map("marked_by")
+  markedAt  DateTime         @default(now()) @map("marked_at")
+
+  session   ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student   User         @relation("AttendanceStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  marker    User         @relation("AttendanceMarker", fields: [markedBy], references: [id])
+
+  @@unique([sessionId, studentId])
+  @@index([studentId])
+  @@map("attendances")
+}
+
+model ClassRecording {
+  id          String    @id @default(cuid())
+  courseId    String    @map("course_id")
+  moduleId    String?   @map("module_id")
+  title       String
+  youtubeUrl  String    @map("youtube_url")
+  description String?
+  position    Int       @default(0)
+  recordedAt  DateTime? @map("recorded_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module      Module?   @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+
+  @@index([courseId])
+  @@map("class_recordings")
+}
+
+model ClassMaterial {
+  id          String   @id @default(cuid())
+  courseId    String   @map("course_id")
+  moduleId    String?  @map("module_id")
+  title       String
+  driveUrl    String   @map("drive_url")
+  description String?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module      Module?  @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+
+  @@index([courseId])
+  @@map("class_materials")
+}
+
+model AssignmentTask {
+  id           String       @id @default(cuid())
+  assignmentId String       @map("assignment_id")
+  studentId    String       @map("student_id")
+  title        String
+  description  String?
+  status       TaskStatus   @default(TODO)
+  priority     TaskPriority @default(MEDIUM)
+  dueAt        DateTime?    @map("due_at")
+  completedAt  DateTime?    @map("completed_at")
+  notes        String?
+  position     Int          @default(0)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  assignment   Assignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student      User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+  @@index([studentId])
+  @@index([status])
+  @@map("assignment_tasks")
+}
+
+model QuestionBank {
+  id           String         @id @default(cuid())
+  createdBy    String         @map("created_by")
+  subject      String?
+  question     String
+  options      Json
+  correctIndex Int            @map("correct_index")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  creator      User           @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  quizLinks    QuizQuestion[]
+
+  @@index([createdBy])
+  @@index([subject])
+  @@map("question_bank")
+}
+
+model Quiz {
+  id             String        @id @default(cuid())
+  courseId       String        @map("course_id")
+  cohortId       String        @map("cohort_id")
+  title          String
+  description    String?
+  timeLimit      Int?          @map("time_limit")
+  maxAttempts    Int           @default(1) @map("max_attempts")
+  availableFrom  DateTime?     @map("available_from")
+  availableUntil DateTime?     @map("available_until")
+  isPublished    Boolean       @default(false) @map("is_published")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  course         Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  cohort         Cohort        @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  questions      QuizQuestion[]
+  attempts       QuizAttempt[]
+
+  @@index([courseId])
+  @@index([cohortId])
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id         String       @id @default(cuid())
+  quizId     String       @map("quiz_id")
+  questionId String       @map("question_id")
+  position   Int          @default(0)
+  points     Int          @default(1)
+
+  quiz       Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  question   QuestionBank @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers    QuizAnswer[]
+
+  @@unique([quizId, questionId])
+  @@map("quiz_questions")
+}
+
+model QuizAttempt {
+  id          String    @id @default(cuid())
+  quizId      String    @map("quiz_id")
+  studentId   String    @map("student_id")
+  attemptNo   Int       @default(1) @map("attempt_no")
+  startedAt   DateTime  @default(now()) @map("started_at")
+  submittedAt DateTime? @map("submitted_at")
+  score       Int?
+  totalPoints Int?      @map("total_points")
+
+  quiz        Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student     User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers     QuizAnswer[]
+
+  @@index([quizId])
+  @@index([studentId])
+  @@map("quiz_attempts")
+}
+
+model QuizAnswer {
+  id            String       @id @default(cuid())
+  attemptId     String       @map("attempt_id")
+  questionId    String       @map("question_id")
+  selectedIndex Int          @map("selected_index")
+  isCorrect     Boolean      @default(false) @map("is_correct")
+
+  attempt       QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question      QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@map("quiz_answers")
 }
