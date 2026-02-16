@@ -31,7 +31,6 @@ import {
     Database,
     Check,
     X,
-    Upload,
     Palette,
     Layout,
     Plus,
@@ -66,6 +65,29 @@ interface SettingsPageProps {
     initialTab?: SettingsTab;
     onBillingClick?: () => void;
     onSelectEntity?: (type: 'student' | 'mentor' | 'cohort', id: string) => void;
+}
+
+// Helper to convert hex color to HSL string for CSS variables
+function hexToHsl(hex: string): string | null {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (!result) return null;
+    let r = parseInt(result[1], 16) / 255;
+    let g = parseInt(result[2], 16) / 255;
+    let b = parseInt(result[3], 16) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+            case g: h = ((b - r) / d + 2) / 6; break;
+            case b: h = ((r - g) / d + 4) / 6; break;
+        }
+    }
+    return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
 // Compliance field configuration by country
@@ -339,6 +361,32 @@ export default function SettingsPage({
         }
     };
 
+    const handleBrandingSave = async () => {
+        setIsSaving(true);
+        try {
+            await apiClient.put('/api/v1/settings', { primaryColor });
+            // Apply the color to CSS variables immediately so the whole app updates
+            const hsl = hexToHsl(primaryColor);
+            if (hsl) {
+                document.documentElement.style.setProperty('--primary', hsl);
+                document.documentElement.style.setProperty('--ring', hsl);
+            }
+            toast({
+                title: 'Branding Saved',
+                description: 'Your brand color has been updated across the platform.',
+                variant: 'success',
+            });
+        } catch {
+            toast({
+                title: 'Error',
+                description: 'Failed to save branding. Please try again.',
+                variant: 'error',
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const handleBillingFieldChange = (key: string, value: string) => {
         setBillingFields(prev => ({ ...prev, [key]: value }));
     };
@@ -543,65 +591,98 @@ export default function SettingsPage({
                                                 Branding & Appearance
                                             </CardTitle>
                                             <CardDescription>
-                                                Customize how your platform looks to students and
-                                                mentors.
+                                                Customize how your platform looks to students and mentors.
                                             </CardDescription>
                                         </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="space-y-6 pt-4">
-                                    <div className="space-y-3">
-                                        <Label>Organization Logo</Label>
-                                        <div className="flex items-start gap-4">
-                                            <div className="h-24 w-24 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
-                                                <span className="text-2xl font-bold text-primary">
-                                                    D
-                                                </span>
+                                    {isSettingsLoading ? (
+                                        <div className="flex justify-center py-8">
+                                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Logo Section */}
+                                            <div className="space-y-3">
+                                                <Label>Organization Logo</Label>
+                                                <div className="flex items-start gap-4">
+                                                    <div className="h-24 w-24 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
+                                                        <span className="text-2xl font-bold" style={{ color: primaryColor }}>
+                                                            {orgName ? orgName.charAt(0).toUpperCase() : 'D'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Logo upload coming soon. Currently using the first letter of your organization name.
+                                                        </p>
+                                                        <Badge variant="outline" className="text-[10px]">Coming Soon</Badge>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="space-y-2">
-                                                <div className="flex gap-2">
-                                                    <Button variant="outline" size="sm" className="gap-2">
-                                                        <Upload className="h-3.5 w-3.5" />
-                                                        Upload Logo
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-destructive hover:text-destructive"
-                                                    >
-                                                        Remove
-                                                    </Button>
+
+                                            {/* Primary Color */}
+                                            <div className="space-y-3">
+                                                <Label>Primary Brand Color</Label>
+                                                <div className="flex items-center gap-3">
+                                                    <div
+                                                        className="h-10 w-10 rounded-md shadow-sm outline outline-2 outline-offset-2"
+                                                        style={{ backgroundColor: primaryColor, outlineColor: primaryColor }}
+                                                    ></div>
+                                                    <Input
+                                                        className="w-32 font-mono"
+                                                        value={primaryColor}
+                                                        onChange={(e) => setPrimaryColor(e.target.value)}
+                                                    />
+                                                    <input
+                                                        type="color"
+                                                        value={primaryColor}
+                                                        onChange={(e) => setPrimaryColor(e.target.value)}
+                                                        className="h-8 w-8 rounded cursor-pointer border-0"
+                                                    />
                                                 </div>
                                                 <p className="text-xs text-muted-foreground">
-                                                    PNG, JPG up to 2MB. Recommended: 128x128px.
+                                                    This color is applied across the sidebar, navigation highlights, and accent elements.
                                                 </p>
                                             </div>
-                                        </div>
-                                    </div>
 
-                                    <div className="space-y-3">
-                                        <Label>Primary Brand Color</Label>
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-md shadow-sm ring-2 ring-offset-2 ring-offset-background ring-emerald-600/50" style={{ backgroundColor: primaryColor }}></div>
-                                            <Input
-                                                className="w-32 font-mono"
-                                                value={primaryColor}
-                                                onChange={(e) => setPrimaryColor(e.target.value)}
-                                            />
-                                            <input
-                                                type="color"
-                                                value={primaryColor}
-                                                onChange={(e) => setPrimaryColor(e.target.value)}
-                                                className="h-8 w-8 rounded cursor-pointer border-0"
-                                            />
-                                        </div>
-                                    </div>
+                                            {/* Live Preview */}
+                                            <div className="space-y-3 pt-2 border-t border-border/50">
+                                                <Label>Live Preview</Label>
+                                                <div className="rounded-lg border border-border/50 p-4 space-y-3 bg-muted/10">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: primaryColor + '1a' }}>
+                                                            <span className="text-xs font-bold" style={{ color: primaryColor }}>D</span>
+                                                        </div>
+                                                        <span className="text-sm font-semibold">{orgName || 'Designient'}</span>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <div className="px-3 py-1.5 rounded-md text-xs font-medium text-white" style={{ backgroundColor: primaryColor }}>
+                                                            Active Button
+                                                        </div>
+                                                        <div className="px-3 py-1.5 rounded-md text-xs font-medium border" style={{ borderColor: primaryColor, color: primaryColor }}>
+                                                            Outline Button
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2 items-center">
+                                                        <div className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ backgroundColor: primaryColor + '1a', color: primaryColor }}>
+                                                            Badge
+                                                        </div>
+                                                        <div className="h-2 w-24 rounded-full bg-muted overflow-hidden">
+                                                            <div className="h-full w-3/4 rounded-full" style={{ backgroundColor: primaryColor }}></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </CardContent>
                                 <CardFooter className="bg-muted/20 border-t border-border/50 flex justify-end py-3">
                                     <Button
-                                        onClick={handleSave}
+                                        onClick={handleBrandingSave}
                                         disabled={isSaving || isSettingsLoading}
-                                        className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        className="gap-2 text-white"
+                                        style={{ backgroundColor: primaryColor }}
                                     >
                                         <Save className="h-4 w-4" />
                                         {isSaving ? 'Saving...' : 'Save Branding'}
