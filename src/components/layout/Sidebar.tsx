@@ -70,34 +70,17 @@ export function Sidebar({
         >
             {/* Logo */}
             <div
-                className={`flex h-14 items-center border-b border-border/50 ${isCollapsed ? 'justify-center px-2' : 'px-4'}`}
+                className={`flex h-14 items-center justify-center border-b border-border/50 px-3`}
             >
-                {isCollapsed ? (
-                    <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
-                        {logoUrl ? (
-                            <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
-                        ) : (
-                            <span className="text-primary font-bold text-lg">
-                                {brandOrgName ? brandOrgName.charAt(0).toUpperCase() : 'D'}
-                            </span>
-                        )}
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                            {logoUrl ? (
-                                <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
-                            ) : (
-                                <span className="text-primary font-bold text-lg">
-                                    {brandOrgName ? brandOrgName.charAt(0).toUpperCase() : 'D'}
-                                </span>
-                            )}
-                        </div>
-                        <span className="font-bold text-lg tracking-tight truncate">
-                            {brandOrgName || 'Designient'}
+                <div className={`rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden ${isCollapsed ? 'h-9 w-9' : 'h-10 w-10'}`}>
+                    {logoUrl ? (
+                        <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
+                    ) : (
+                        <span className={`text-primary font-bold ${isCollapsed ? 'text-lg' : 'text-xl'}`}>
+                            {brandOrgName ? brandOrgName.charAt(0).toUpperCase() : 'D'}
                         </span>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
             {/* Navigation Content */}
