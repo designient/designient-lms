@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { Cohort } from '../../types';
 
-interface StudentSummary {
+export interface StudentSummary {
     id: string;
     name: string;
     status: 'Invited' | 'Active' | 'Flagged' | 'Dropped' | 'Completed';
@@ -44,50 +44,8 @@ interface CohortDrawerProps {
     onMarkComplete?: () => void;
     onRestore?: () => void;
     availableMentors?: MentorForAssignment[];
+    students?: StudentSummary[];
 }
-
-const mockStudents: StudentSummary[] = [
-    { id: 'S-1001', name: 'Emma Thompson', status: 'Active' },
-    { id: 'S-1002', name: 'James Wilson', status: 'Flagged' },
-    { id: 'S-1003', name: 'Sofia Rodriguez', status: 'Active' },
-    { id: 'S-1004', name: 'Michael Chang', status: 'Completed' },
-    { id: 'S-1005', name: 'Olivia Parker', status: 'Active' }
-];
-
-const mockAvailableMentors: MentorForAssignment[] = [
-    {
-        id: 'M-001',
-        name: 'Sarah Chen',
-        email: 'sarah.chen@designient.com',
-        currentLoad: 2,
-        maxCohorts: 3,
-        status: 'Active'
-    },
-    {
-        id: 'M-002',
-        name: 'Mike Ross',
-        email: 'mike.ross@designient.com',
-        currentLoad: 2,
-        maxCohorts: 3,
-        status: 'Active'
-    },
-    {
-        id: 'M-003',
-        name: 'Alex Kim',
-        email: 'alex.kim@designient.com',
-        currentLoad: 1,
-        maxCohorts: 2,
-        status: 'Active'
-    },
-    {
-        id: 'M-004',
-        name: 'Jessica Lee',
-        email: 'jessica.lee@designient.com',
-        currentLoad: 2,
-        maxCohorts: 3,
-        status: 'Active'
-    }
-];
 
 const getStatusVariant = (status: StudentSummary['status']) => {
     switch (status) {
@@ -131,7 +89,8 @@ export function CohortDrawer({
     onDuplicate,
     onMarkComplete,
     onRestore,
-    availableMentors = mockAvailableMentors
+    availableMentors = [],
+    students = [],
 }: CohortDrawerProps) {
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
@@ -355,7 +314,7 @@ export function CohortDrawer({
             <DrawerSection title="Students">
                 <div className="space-y-3">
                     <div className="space-y-2">
-                        {mockStudents.slice(0, 5).map((student) => (
+                        {students.slice(0, 5).map((student) => (
                             <div
                                 key={student.id}
                                 className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/40 transition-colors"

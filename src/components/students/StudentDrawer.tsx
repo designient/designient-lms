@@ -30,6 +30,11 @@ import {
 } from 'lucide-react';
 import { Student } from '@/types';
 
+interface SelectOption {
+    value: string;
+    label: string;
+}
+
 interface StudentDrawerProps {
     student: Student;
     onStatusChange: (status: Student['status'], reason?: string) => void;
@@ -41,6 +46,8 @@ interface StudentDrawerProps {
     onAddNote: (content: string) => void;
     onUpdatePayment: (status: Student['paymentStatus']) => void;
     onSendMessage: () => void;
+    mentorOptions?: SelectOption[];
+    cohortOptions?: SelectOption[];
 }
 
 const statusConfig: Record<
@@ -86,49 +93,6 @@ const statusOptions: Student['status'][] = [
     'Completed',
 ];
 
-// Mock data for dropdowns
-const mentorOptions = [
-    {
-        value: 'M-001',
-        label: 'Sarah Chen',
-    },
-    {
-        value: 'M-002',
-        label: 'Mike Ross',
-    },
-    {
-        value: 'M-003',
-        label: 'Alex Kim',
-    },
-    {
-        value: 'M-004',
-        label: 'Jessica Lee',
-    },
-    {
-        value: 'M-005',
-        label: 'David Park',
-    },
-];
-
-const cohortOptions = [
-    {
-        value: 'C-2024-001',
-        label: 'Spring 2024 Design Systems',
-    },
-    {
-        value: 'C-2024-002',
-        label: 'Winter 2024 Product Strategy',
-    },
-    {
-        value: 'C-2024-003',
-        label: 'Spring 2024 Foundations',
-    },
-    {
-        value: 'C-2024-004',
-        label: 'Summer 2024 Interaction',
-    },
-];
-
 const paymentOptions = [
     {
         value: 'Paid',
@@ -159,6 +123,8 @@ export function StudentDrawer({
     onAddNote,
     onUpdatePayment,
     onSendMessage,
+    mentorOptions = [],
+    cohortOptions = [],
 }: StudentDrawerProps) {
     const [selectedStatus, setSelectedStatus] = useState<Student['status']>(
         student.status

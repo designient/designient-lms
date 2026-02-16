@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageName } from '@/types';
@@ -42,6 +42,7 @@ import {
     X
 } from 'lucide-react';
 import { MessageTemplate, Message, ScheduledMessage } from '@/types';
+import { apiClient } from '@/lib/api-client';
 
 // Mock Data
 const initialTemplates: MessageTemplate[] = [
@@ -274,6 +275,18 @@ export default function CommunicationsPage({
     const [composeCohort, setComposeCohort] = useState('');
     const [composeSubject, setComposeSubject] = useState('');
     const [composeBody, setComposeBody] = useState('');
+    const [cohortOptionsForCompose, setCohortOptionsForCompose] = useState<{ value: string; label: string }[]>([]);
+
+    useEffect(() => {
+        apiClient.get<{ cohorts: Array<{ id: string; name: string; _count?: { students: number } }> }>('/api/v1/cohorts?limit=50')
+            .then(res => {
+                setCohortOptionsForCompose(res.cohorts.map(c => ({
+                    value: c.id,
+                    label: `${c.name} (${c._count?.students ?? 0} students)`,
+                })));
+            })
+            .catch(() => {});
+    }, []);
 
     // Handle initial recipient
     useEffect(() => {
@@ -756,20 +769,7 @@ export default function CommunicationsPage({
                                             <Label>Select Cohort</Label>
                                             <Select
                                                 placeholder="Choose a cohort"
-                                                options={[
-                                                    {
-                                                        value: 'C-2024-001',
-                                                        label: 'Spring 2024 Design Systems (24 students)'
-                                                    },
-                                                    {
-                                                        value: 'C-2024-002',
-                                                        label: 'Winter 2024 Product Strategy (18 students)'
-                                                    },
-                                                    {
-                                                        value: 'C-2024-003',
-                                                        label: 'Spring 2024 Foundations (32 students)'
-                                                    }
-                                                ]}
+                                                options={cohortOptionsForCompose}
                                                 value={composeCohort}
                                                 onChange={(e) => setComposeCohort(e.target.value)}
                                             />

@@ -18,6 +18,17 @@ export const GET = withAuth(
                     data: {
                         orgName: 'My Organization',
                         orgSlug: 'my-org',
+                        catalogSettings: {
+                            mentorSpecialties: [
+                                { value: 'design-systems', label: 'Design Systems' },
+                                { value: 'product-design', label: 'Product Design' },
+                                { value: 'ux-strategy', label: 'UX Strategy' },
+                                { value: 'ui-design', label: 'UI Design' },
+                                { value: 'ux-research', label: 'UX Research' },
+                                { value: 'interaction-design', label: 'Interaction Design' },
+                                { value: 'career-development', label: 'Career Development' },
+                            ],
+                        },
                     }
                 });
             }

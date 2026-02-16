@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { CohortsTable } from '@/components/cohorts/CohortsTable';
-import { CohortDrawer } from '@/components/cohorts/CohortDrawer';
+import { CohortDrawer, StudentSummary } from '@/components/cohorts/CohortDrawer';
 import {
     CreateCohortDrawer,
     CohortFormData,
@@ -22,6 +22,7 @@ import { Plus, Loader2 } from 'lucide-react';
 import { PageName } from '@/types';
 import { Cohort } from '@/types';
 import { apiClient } from '@/lib/api-client';
+import { MentorForAssignment } from '@/components/ui/AssignmentModal';
 
 type DrawerMode = 'view' | 'create' | 'edit';
 
@@ -87,6 +88,8 @@ export default function CohortsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [programOptions, setProgramOptions] = useState<{ value: string; label: string }[]>([]);
     const [mentorOptionsList, setMentorOptionsList] = useState<{ value: string; label: string; role?: string }[]>([]);
+    const [availableMentorsForDrawer, setAvailableMentorsForDrawer] = useState<MentorForAssignment[]>([]);
+    const [cohortStudents, setCohortStudents] = useState<StudentSummary[]>([]);
     const [selectedCohort, setSelectedCohort] = useState<Cohort | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [drawerMode, setDrawerMode] = useState<DrawerMode>('view');
@@ -111,6 +114,16 @@ export default function CohortsPage() {
             setCohorts(cohortsRes.cohorts.map(transformCohort));
             setProgramOptions(programsRes.programs.map(p => ({ value: p.id, label: p.name })));
             setMentorOptionsList(mentorsRes.mentors.map(m => ({ value: m.id, label: m.name, role: m.specialization })));
+            setAvailableMentorsForDrawer(
+                (mentorsRes.mentors as Array<{ id: string; name: string; email?: string; status?: string; cohortCount?: number; maxCohorts?: number }>).map(m => ({
+                    id: m.id,
+                    name: m.name,
+                    email: m.email || '',
+                    currentLoad: m.cohortCount ?? 0,
+                    maxCohorts: m.maxCohorts ?? 5,
+                    status: (m.status === 'ACTIVE' ? 'Active' : 'Inactive') as 'Active' | 'Inactive',
+                }))
+            );
         } catch (error) {
             console.error('Failed to fetch cohorts:', error);
             toast({
@@ -155,10 +168,22 @@ export default function CohortsPage() {
         router.push(`/${page}`);
     };
 
-    const handleCohortClick = (cohort: Cohort) => {
+    const handleCohortClick = async (cohort: Cohort) => {
         setSelectedCohort(cohort);
         setDrawerMode('view');
         setIsDrawerOpen(true);
+        setCohortStudents([]);
+        try {
+            const res = await apiClient.get<{ students: Array<{ id: string; name: string; status: string }> }>(`/api/v1/students?cohortId=${cohort.id}&limit=10`);
+            const statusMap: Record<string, StudentSummary['status']> = { ACTIVE: 'Active', INVITED: 'Invited', FLAGGED: 'Flagged', DROPPED: 'Dropped', COMPLETED: 'Completed' };
+            setCohortStudents(res.students.map(s => ({
+                id: s.id,
+                name: s.name || 'Unknown',
+                status: statusMap[s.status] || 'Active',
+            })));
+        } catch {
+            setCohortStudents([]);
+        }
     };
 
     const handleCreateClick = () => {
@@ -490,6 +515,8 @@ export default function CohortsPage() {
                             onDelete={handleDelete}
                             onDuplicate={handleDuplicate}
                             onMarkComplete={handleMarkComplete}
+                            availableMentors={availableMentorsForDrawer}
+                            students={cohortStudents}
                         />
                     )}
 

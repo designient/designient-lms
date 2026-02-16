@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Search, X, User, Users, Layers, ChevronRight, Command } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Search, X, User, Users, Layers, ChevronRight, Command, Loader2 } from 'lucide-react';
 import type { PageName } from '@/types';
+import { apiClient } from '@/lib/api-client';
 
 interface SearchModalProps {
     open: boolean;
@@ -19,18 +20,11 @@ interface SearchResult {
     page: PageName;
 }
 
-const mockData: SearchResult[] = [
-    { id: 'S-1001', type: 'student', title: 'Emma Thompson', subtitle: 'Spring 2024 Design Systems', page: 'students' },
-    { id: 'S-1002', type: 'student', title: 'James Wilson', subtitle: 'Winter 2024 Product Strategy', page: 'students' },
-    { id: 'M-001', type: 'mentor', title: 'Sarah Chen', subtitle: 'Design Systems Lead', page: 'mentors' },
-    { id: 'M-002', type: 'mentor', title: 'Mike Ross', subtitle: 'Product Designer', page: 'mentors' },
-    { id: 'C-2024-001', type: 'cohort', title: 'Spring 2024 Design Systems', subtitle: 'Active • 24 Students', page: 'cohorts' },
-    { id: 'C-2024-002', type: 'cohort', title: 'Winter 2024 Product Strategy', subtitle: 'Active • 18 Students', page: 'cohorts' },
-];
-
 export function SearchModal({ open, onClose, onNavigate, onSelectEntity }: SearchModalProps) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (open) {
@@ -59,14 +53,68 @@ export function SearchModal({ open, onClose, onNavigate, onSelectEntity }: Searc
     useEffect(() => {
         if (!query.trim()) {
             setResults([]);
+            setIsSearching(false);
             return;
         }
-        const filtered = mockData.filter(
-            (item) =>
-                item.title.toLowerCase().includes(query.toLowerCase()) ||
-                item.subtitle.toLowerCase().includes(query.toLowerCase())
-        );
-        setResults(filtered);
+
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        setIsSearching(true);
+
+        debounceRef.current = setTimeout(async () => {
+            try {
+                const searchTerm = encodeURIComponent(query.trim());
+                const [studentsRes, mentorsRes, cohortsRes] = await Promise.all([
+                    apiClient.get<{ students: Array<{ id: string; name: string; cohortName?: string }> }>(`/api/v1/students?search=${searchTerm}&limit=5`).catch(() => ({ students: [] })),
+                    apiClient.get<{ mentors: Array<{ id: string; name: string; specialization?: string }> }>(`/api/v1/mentors?search=${searchTerm}&limit=5`).catch(() => ({ mentors: [] })),
+                    apiClient.get<{ cohorts: Array<{ id: string; name: string; status: string; _count?: { students: number } }> }>(`/api/v1/cohorts?limit=50`).catch(() => ({ cohorts: [] })),
+                ]);
+
+                const searchResults: SearchResult[] = [];
+
+                for (const s of studentsRes.students) {
+                    searchResults.push({
+                        id: s.id,
+                        type: 'student',
+                        title: s.name,
+                        subtitle: s.cohortName || 'No cohort assigned',
+                        page: 'students',
+                    });
+                }
+
+                for (const m of mentorsRes.mentors) {
+                    searchResults.push({
+                        id: m.id,
+                        type: 'mentor',
+                        title: m.name,
+                        subtitle: m.specialization || 'Mentor',
+                        page: 'mentors',
+                    });
+                }
+
+                const lowerQuery = query.toLowerCase();
+                for (const c of cohortsRes.cohorts) {
+                    if (c.name.toLowerCase().includes(lowerQuery)) {
+                        searchResults.push({
+                            id: c.id,
+                            type: 'cohort',
+                            title: c.name,
+                            subtitle: `${c.status} • ${c._count?.students ?? 0} Students`,
+                            page: 'cohorts',
+                        });
+                    }
+                }
+
+                setResults(searchResults.slice(0, 10));
+            } catch {
+                setResults([]);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 300);
+
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
     }, [query]);
 
     const handleSelect = (result: SearchResult) => {
@@ -111,6 +159,11 @@ export function SearchModal({ open, onClose, onNavigate, onSelectEntity }: Searc
                         <div className="py-12 text-center text-muted-foreground">
                             <Command className="h-10 w-10 mx-auto mb-3 opacity-20" />
                             <p className="text-sm">Type to search across the platform</p>
+                        </div>
+                    ) : isSearching ? (
+                        <div className="py-8 text-center text-muted-foreground">
+                            <Loader2 className="h-5 w-5 mx-auto mb-2 animate-spin" />
+                            <p className="text-sm">Searching...</p>
                         </div>
                     ) : results.length > 0 ? (
                         <div className="space-y-1">

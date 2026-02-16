@@ -136,10 +136,12 @@ export const messageSchema = z.object({
 // Settings Schemas
 export const settingsSchema = z.object({
     orgName: z.string().min(2).max(100).optional(),
+    orgSlug: z.string().min(2).max(50).optional(),
     supportEmail: z.string().email().optional().nullable(),
     primaryColor: z.string().regex(/^#([0-9a-f]{3}){1,2}$/i).optional().nullable(),
     billingSettings: z.record(z.string(), z.any()).optional(),
     securitySettings: z.record(z.string(), z.any()).optional(),
+    catalogSettings: z.record(z.string(), z.any()).optional(),
 });
 
 // Helper to extract Zod errors into a friendly format

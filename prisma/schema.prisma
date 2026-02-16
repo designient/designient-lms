@@ -398,6 +398,7 @@ model Settings {
   logoUrl          String?  @map("logo_url")
   billingSettings  Json?    @map("billing_settings")
   securitySettings Json?    @map("security_settings")
+  catalogSettings  Json?    @map("catalog_settings")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 

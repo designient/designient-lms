@@ -22,10 +22,8 @@ import {
     Save,
     Users,
     Shield,
-    Mail,
     Building2,
     CreditCard as BillingIcon,
-    CreditCard,
     Bell,
     Key,
     Webhook,
@@ -36,28 +34,20 @@ import {
     Upload,
     Palette,
     Layout,
-    Eye,
-    EyeOff,
-    Copy,
     Plus,
     Trash2,
     Clock,
     Globe,
     Download,
-    AlertTriangle,
-    Smartphone,
-    Lock,
-    MessageSquare
+    MessageSquare,
+    Tag,
+    Loader2,
+    GripVertical
 } from 'lucide-react';
 import {
-    TeamMember,
-    Subscription,
     AuditLogEntry,
-    ApiKey,
-    Webhook as WebhookType,
-    DataExport,
-    UserRole
 } from '@/types';
+import { apiClient } from '@/lib/api-client';
 
 export type SettingsTab =
     | 'organization'
@@ -69,7 +59,8 @@ export type SettingsTab =
     | 'security'
     | 'integrations'
     | 'audit'
-    | 'data';
+    | 'data'
+    | 'catalog';
 
 interface SettingsPageProps {
     initialTab?: SettingsTab;
@@ -77,176 +68,41 @@ interface SettingsPageProps {
     onSelectEntity?: (type: 'student' | 'mentor' | 'cohort', id: string) => void;
 }
 
-// Mock Data
-const initialTeamMembers: TeamMember[] = [
-    {
-        id: '1',
-        name: 'Super Admin',
-        email: 'admin@designient.com',
-        role: 'institute_admin',
-        status: 'active',
-        lastActive: 'Just now'
-    },
-    {
-        id: '2',
-        name: 'Priya Sharma',
-        email: 'priya@designient.com',
-        role: 'program_manager',
-        status: 'active',
-        lastActive: '2 hours ago'
-    },
-    {
-        id: '3',
-        name: 'Rahul Verma',
-        email: 'rahul@designient.com',
-        role: 'finance_admin',
-        status: 'invited',
-        invitedAt: '2 days ago'
-    }
-];
-
-const mockSubscription: Subscription = {
-    plan: 'growth',
-    status: 'active',
-    currentPeriodEnd: 'April 15, 2024',
-    studentCount: 186,
-    studentLimit: 500,
-    mentorCount: 8,
-    mentorLimit: 20,
-    cohortCount: 8,
-    cohortLimit: 25,
-    price: 24999,
-    currency: 'INR',
-    billingCycle: 'monthly'
+// Compliance field configuration by country
+const complianceFieldsByCountry: Record<string, { key: string; label: string; placeholder: string }[]> = {
+    IN: [
+        { key: 'gstNumber', label: 'GST Number (GSTIN)', placeholder: '22AAAAA0000A1Z5' },
+        { key: 'businessPan', label: 'Business PAN', placeholder: 'AAAAA0000A' },
+        { key: 'businessName', label: 'Registered Business Name', placeholder: 'Your registered business name' },
+    ],
+    US: [
+        { key: 'ein', label: 'EIN (Employer Identification Number)', placeholder: 'XX-XXXXXXX' },
+        { key: 'stateTaxId', label: 'State Tax ID (optional)', placeholder: 'State tax ID' },
+        { key: 'businessName', label: 'Registered Business Name', placeholder: 'Your registered business name' },
+    ],
+    GB: [
+        { key: 'vatNumber', label: 'VAT Number', placeholder: 'GB123456789' },
+        { key: 'companyRegNumber', label: 'Company Registration Number', placeholder: '12345678' },
+        { key: 'businessName', label: 'Registered Business Name', placeholder: 'Your registered business name' },
+    ],
+    EU: [
+        { key: 'vatNumber', label: 'VAT Number', placeholder: 'EU123456789' },
+        { key: 'euCountry', label: 'EU Country', placeholder: 'Select country' },
+        { key: 'businessName', label: 'Registered Business Name', placeholder: 'Your registered business name' },
+    ],
 };
 
-const mockAuditLogs: AuditLogEntry[] = [
-    {
-        id: 'AL-001',
-        userId: 'U-001',
-        userName: 'Super Admin',
-        userRole: 'institute_admin',
-        action: 'student.status.updated',
-        resource: 'Student',
-        resourceId: 'S-1002',
-        details: 'Changed status from Active to Flagged',
-        ipAddress: '103.21.244.12',
-        timestamp: '2024-03-15 14:32:18',
-        status: 'success'
-    },
-    {
-        id: 'AL-002',
-        userId: 'U-002',
-        userName: 'Priya Sharma',
-        userRole: 'program_manager',
-        action: 'cohort.created',
-        resource: 'Cohort',
-        resourceId: 'C-2024-005',
-        details: 'Created new cohort: Summer 2024 Advanced UI',
-        ipAddress: '103.21.244.15',
-        timestamp: '2024-03-15 12:15:42',
-        status: 'success'
-    },
-    {
-        id: 'AL-003',
-        userId: 'U-001',
-        userName: 'Super Admin',
-        userRole: 'institute_admin',
-        action: 'settings.billing.updated',
-        resource: 'Settings',
-        details: 'Updated payment gateway to Razorpay',
-        ipAddress: '103.21.244.12',
-        timestamp: '2024-03-15 10:08:33',
-        status: 'success'
-    }
-];
-
-const initialApiKeys: ApiKey[] = [
-    {
-        id: 'KEY-001',
-        name: 'Production API',
-        key: 'sk_live_****************************1a2b',
-        permissions: ['read', 'write'],
-        lastUsed: '2 hours ago',
-        createdAt: 'Jan 15, 2024',
-        status: 'active'
-    },
-    {
-        id: 'KEY-002',
-        name: 'Webhook Integration',
-        key: 'sk_live_****************************3c4d',
-        permissions: ['read'],
-        lastUsed: '1 day ago',
-        createdAt: 'Feb 20, 2024',
-        status: 'active'
-    }
-];
-
-const initialWebhooks: WebhookType[] = [
-    {
-        id: 'WH-001',
-        name: 'Slack Notifications',
-        url: 'https://hooks.slack.com/services/T00/B00/xxxx',
-        events: ['student.enrolled', 'student.flagged', 'payment.received'],
-        secret: 'whsec_****************************',
-        status: 'active',
-        lastTriggered: '30 minutes ago',
-        failureCount: 0,
-        createdAt: 'Jan 10, 2024'
-    },
-    {
-        id: 'WH-002',
-        name: 'CRM Sync',
-        url: 'https://api.crm.example.com/webhooks',
-        events: ['student.enrolled', 'student.completed'],
-        secret: 'whsec_****************************',
-        status: 'failing',
-        lastTriggered: '2 days ago',
-        failureCount: 5,
-        createdAt: 'Feb 5, 2024'
-    }
-];
-
-const initialExports: DataExport[] = [
-    {
-        id: 'EXP-001',
-        type: 'students',
-        format: 'csv',
-        status: 'completed',
-        requestedBy: 'Super Admin',
-        requestedAt: 'Mar 15, 2024 10:30 AM',
-        completedAt: 'Mar 15, 2024 10:32 AM',
-        downloadUrl: '#',
-        expiresAt: 'Mar 22, 2024',
-        fileSize: '2.4 MB'
-    },
-    {
-        id: 'EXP-002',
-        type: 'payments',
-        format: 'xlsx',
-        status: 'processing',
-        requestedBy: 'Rahul Verma',
-        requestedAt: 'Mar 15, 2024 14:15 PM'
-    }
-];
-
-const roleOptions = [
-    {
-        value: 'program_manager',
-        label: 'Program Manager'
-    },
-    {
-        value: 'finance_admin',
-        label: 'Finance Admin'
-    },
-    {
-        value: 'mentor',
-        label: 'Mentor'
-    },
-    {
-        value: 'viewer',
-        label: 'Viewer (Read-only)'
-    }
+const euCountryOptions = [
+    { value: 'DE', label: 'Germany' },
+    { value: 'FR', label: 'France' },
+    { value: 'NL', label: 'Netherlands' },
+    { value: 'ES', label: 'Spain' },
+    { value: 'IT', label: 'Italy' },
+    { value: 'BE', label: 'Belgium' },
+    { value: 'AT', label: 'Austria' },
+    { value: 'IE', label: 'Ireland' },
+    { value: 'PT', label: 'Portugal' },
+    { value: 'FI', label: 'Finland' },
 ];
 
 export default function SettingsPage({
@@ -258,8 +114,6 @@ export default function SettingsPage({
     const { toast } = useToast();
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
     const [isSaving, setIsSaving] = useState(false);
-    const [showApiKey, setShowApiKey] = useState<string | null>(null);
-
     // Update active tab if initialTab changes
     useEffect(() => {
         if (initialTab) {
@@ -268,162 +122,225 @@ export default function SettingsPage({
     }, [initialTab]);
 
     // Data states
-    const [teamMembers, setTeamMembers] = useState<TeamMember[]>(initialTeamMembers);
-    const [apiKeys, setApiKeys] = useState<ApiKey[]>(initialApiKeys);
-    const [webhooks, setWebhooks] = useState<WebhookType[]>(initialWebhooks);
-    const [exports, setExports] = useState<DataExport[]>(initialExports);
+    const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+    const [isAuditLoading, setIsAuditLoading] = useState(false);
 
-    // Modal/Drawer states
-    const [showInviteModal, setShowInviteModal] = useState(false);
-    const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
-    const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState<string | null>(null);
-    const [showCreateApiKeyModal, setShowCreateApiKeyModal] = useState(false);
-    const [showDeleteApiKeyConfirm, setShowDeleteApiKeyConfirm] = useState<string | null>(null);
+    // Organization form state
+    const [orgName, setOrgName] = useState('');
+    const [orgSlug, setOrgSlug] = useState('');
+    const [supportEmail, setSupportEmail] = useState('');
+    const [timezone, setTimezone] = useState('Asia/Kolkata');
 
-    // Form states
-    const [inviteEmail, setInviteEmail] = useState('');
-    const [inviteRole, setInviteRole] = useState<UserRole>('program_manager');
-    const [newApiKeyName, setNewApiKeyName] = useState('');
-    const [newApiKeyPermissions, setNewApiKeyPermissions] = useState<string[]>(['read']);
+    // Branding form state
+    const [primaryColor, setPrimaryColor] = useState('#059669');
+
+    // Billing form state
+    const [billingCountry, setBillingCountry] = useState('IN');
+    const [billingFields, setBillingFields] = useState<Record<string, string>>({});
+
+    // Notifications form state
+    const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+    const [emailEnabled, setEmailEnabled] = useState(true);
+    const [smsEnabled, setSmsEnabled] = useState(false);
+    const [pushEnabled, setPushEnabled] = useState(true);
+
+    // Subscription real counts
+    const [realStudentCount, setRealStudentCount] = useState(0);
+    const [realMentorCount, setRealMentorCount] = useState(0);
+    const [realCohortCount, setRealCohortCount] = useState(0);
+    const [isSubLoading, setIsSubLoading] = useState(false);
+
+    // Settings loading state
+    const [isSettingsLoading, setIsSettingsLoading] = useState(true);
+
+    // Catalog states
+    const [mentorSpecialties, setMentorSpecialties] = useState<{ value: string; label: string }[]>([]);
+    const [isCatalogLoading, setIsCatalogLoading] = useState(false);
+    const [isCatalogSaving, setIsCatalogSaving] = useState(false);
+    const [newSpecialtyLabel, setNewSpecialtyLabel] = useState('');
+
+    // Fetch all settings on mount
+    useEffect(() => {
+        async function fetchSettings() {
+            try {
+                setIsSettingsLoading(true);
+                setIsCatalogLoading(true);
+                const settings = await apiClient.get<{
+                    orgName?: string;
+                    orgSlug?: string;
+                    supportEmail?: string;
+                    primaryColor?: string;
+                    billingSettings?: Record<string, string>;
+                    securitySettings?: Record<string, boolean>;
+                    catalogSettings?: {
+                        mentorSpecialties?: { value: string; label: string }[];
+                    };
+                }>('/api/v1/settings');
+
+                // Organization
+                if (settings.orgName) setOrgName(settings.orgName);
+                if (settings.orgSlug) setOrgSlug(settings.orgSlug);
+                if (settings.supportEmail) setSupportEmail(settings.supportEmail);
+                if (settings.billingSettings?.timezone) setTimezone(settings.billingSettings.timezone);
+
+                // Branding
+                if (settings.primaryColor) setPrimaryColor(settings.primaryColor);
+
+                // Billing
+                if (settings.billingSettings) {
+                    const bs = settings.billingSettings;
+                    if (bs.country) setBillingCountry(bs.country);
+                    const fields: Record<string, string> = {};
+                    Object.keys(bs).forEach(k => {
+                        if (k !== 'country' && k !== 'timezone') fields[k] = bs[k];
+                    });
+                    setBillingFields(fields);
+                }
+
+                // Notifications
+                if (settings.securitySettings) {
+                    const ss = settings.securitySettings;
+                    if (ss.whatsappEnabled !== undefined) setWhatsappEnabled(!!ss.whatsappEnabled);
+                    if (ss.emailEnabled !== undefined) setEmailEnabled(!!ss.emailEnabled);
+                    if (ss.smsEnabled !== undefined) setSmsEnabled(!!ss.smsEnabled);
+                    if (ss.pushEnabled !== undefined) setPushEnabled(!!ss.pushEnabled);
+                }
+
+                // Catalog
+                const specialties = settings.catalogSettings?.mentorSpecialties || [];
+                setMentorSpecialties(specialties);
+            } catch {
+                // Settings may not exist yet; start with defaults
+            } finally {
+                setIsSettingsLoading(false);
+                setIsCatalogLoading(false);
+            }
+        }
+        fetchSettings();
+    }, []);
+
+    // Fetch audit logs when audit tab is active
+    useEffect(() => {
+        if (activeTab === 'audit' && auditLogs.length === 0) {
+            setIsAuditLoading(true);
+            apiClient.get<{ logs: AuditLogEntry[] }>('/api/v1/audit-logs?limit=20')
+                .then(res => {
+                    setAuditLogs(res.logs);
+                })
+                .catch(() => {
+                    setAuditLogs([]);
+                })
+                .finally(() => setIsAuditLoading(false));
+        }
+    }, [activeTab, auditLogs.length]);
+
+    // Fetch real subscription counts when subscription tab is active
+    useEffect(() => {
+        if (activeTab === 'subscription' && !isSubLoading && realStudentCount === 0) {
+            setIsSubLoading(true);
+            Promise.all([
+                apiClient.get<{ pagination: { total: number } }>('/api/v1/students?limit=1'),
+                apiClient.get<{ pagination: { total: number } }>('/api/v1/mentors?limit=1'),
+                apiClient.get<{ pagination: { total: number } }>('/api/v1/cohorts?limit=1'),
+            ]).then(([students, mentors, cohorts]) => {
+                setRealStudentCount(students.pagination?.total || 0);
+                setRealMentorCount(mentors.pagination?.total || 0);
+                setRealCohortCount(cohorts.pagination?.total || 0);
+            }).catch(() => {
+                // Ignore -- counts stay 0
+            }).finally(() => setIsSubLoading(false));
+        }
+    }, [activeTab, isSubLoading, realStudentCount]);
+
+    const handleAddSpecialty = () => {
+        const label = newSpecialtyLabel.trim();
+        if (!label) return;
+        const value = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        if (mentorSpecialties.some((s) => s.value === value)) {
+            toast({ title: 'Duplicate', description: 'This specialty already exists.', variant: 'error' });
+            return;
+        }
+        setMentorSpecialties((prev) => [...prev, { value, label }]);
+        setNewSpecialtyLabel('');
+    };
+
+    const handleRemoveSpecialty = (value: string) => {
+        setMentorSpecialties((prev) => prev.filter((s) => s.value !== value));
+    };
+
+    const handleUpdateSpecialtyLabel = (value: string, newLabel: string) => {
+        setMentorSpecialties((prev) =>
+            prev.map((s) => (s.value === value ? { ...s, label: newLabel } : s))
+        );
+    };
+
+    const handleSaveCatalog = async () => {
+        setIsCatalogSaving(true);
+        try {
+            await apiClient.put('/api/v1/settings', {
+                catalogSettings: {
+                    mentorSpecialties: mentorSpecialties,
+                },
+            });
+            toast({
+                title: 'Catalog Saved',
+                description: 'Mentor specialties have been updated.',
+                variant: 'success',
+            });
+        } catch {
+            toast({
+                title: 'Error',
+                description: 'Failed to save catalog settings.',
+                variant: 'error',
+            });
+        } finally {
+            setIsCatalogSaving(false);
+        }
+    };
 
     const handleNavigate = (page: PageName) => {
         router.push(`/${page}`);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         setIsSaving(true);
-        setTimeout(() => {
-            setIsSaving(false);
+        try {
+            let payload: Record<string, unknown> = {};
+            if (activeTab === 'organization') {
+                payload = { orgName, orgSlug, supportEmail: supportEmail || null };
+                // Store timezone in billingSettings to persist it
+                const currentBilling = { ...billingFields, country: billingCountry, timezone };
+                payload.billingSettings = currentBilling;
+            } else if (activeTab === 'branding') {
+                payload = { primaryColor };
+            } else if (activeTab === 'billing') {
+                payload = {
+                    billingSettings: { ...billingFields, country: billingCountry, timezone },
+                };
+            } else if (activeTab === 'notifications') {
+                payload = {
+                    securitySettings: { whatsappEnabled, emailEnabled, smsEnabled, pushEnabled },
+                };
+            }
+            await apiClient.put('/api/v1/settings', payload);
             toast({
                 title: 'Settings Saved',
                 description: 'Your changes have been saved successfully.',
-                variant: 'success'
+                variant: 'success',
             });
-        }, 1000);
-    };
-
-    const handleInviteMember = () => {
-        if (!inviteEmail.trim()) return;
-        if (editingMemberId) {
-            // Update existing member
-            setTeamMembers((prev) =>
-                prev.map((m) =>
-                    m.id === editingMemberId
-                        ? {
-                            ...m,
-                            email: inviteEmail,
-                            role: inviteRole
-                        }
-                        : m
-                )
-            );
+        } catch {
             toast({
-                title: 'Member Updated',
-                description: `Role updated for ${inviteEmail}`,
-                variant: 'success'
+                title: 'Error',
+                description: 'Failed to save settings. Please try again.',
+                variant: 'error',
             });
-        } else {
-            // Create new member
-            const newMember: TeamMember = {
-                id: String(teamMembers.length + 1),
-                name: inviteEmail
-                    .split('@')[0]
-                    .split('.')
-                    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                    .join(' '),
-                email: inviteEmail,
-                role: inviteRole,
-                status: 'invited',
-                invitedAt: 'Just now'
-            };
-            setTeamMembers((prev) => [...prev, newMember]);
-            toast({
-                title: 'Invitation Sent',
-                description: `Invitation sent to ${inviteEmail}`,
-                variant: 'success'
-            });
-        }
-        setShowInviteModal(false);
-        setEditingMemberId(null);
-        setInviteEmail('');
-        setInviteRole('program_manager');
-    };
-
-    const handleRemoveMember = (memberId: string) => {
-        const member = teamMembers.find((m) => m.id === memberId);
-        setTeamMembers((prev) => prev.filter((m) => m.id !== memberId));
-        toast({
-            title: 'Member Removed',
-            description: `${member?.name} has been removed from the team.`,
-            variant: 'success'
-        });
-        setShowRemoveMemberConfirm(null);
-    };
-
-    const handleEditMember = (memberId: string) => {
-        const member = teamMembers.find((m) => m.id === memberId);
-        if (member) {
-            setEditingMemberId(memberId);
-            setInviteEmail(member.email);
-            setInviteRole(member.role);
-            setShowInviteModal(true);
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    const handleResendInvite = (memberId: string) => {
-        const member = teamMembers.find((m) => m.id === memberId);
-        toast({
-            title: 'Invitation Resent',
-            description: `Invitation resent to ${member?.email}`,
-            variant: 'success'
-        });
-    };
-
-    const handleCreateApiKey = () => {
-        if (!newApiKeyName.trim()) return;
-        const newKey: ApiKey = {
-            id: `KEY-${String(apiKeys.length + 1).padStart(3, '0')}`,
-            name: newApiKeyName,
-            key: `sk_live_${Math.random().toString(36).substring(2, 15)}****${Math.random()
-                .toString(36)
-                .substring(2, 6)}`,
-            permissions: newApiKeyPermissions as ('read' | 'write' | 'delete')[],
-            createdAt: new Date().toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-            }),
-            status: 'active'
-        };
-        setApiKeys((prev) => [...prev, newKey]);
-        toast({
-            title: 'API Key Created',
-            description: `"${newApiKeyName}" has been created. Make sure to copy it now.`,
-            variant: 'success'
-        });
-        setShowCreateApiKeyModal(false);
-        setNewApiKeyName('');
-        setNewApiKeyPermissions(['read']);
-    };
-
-    const handleDeleteApiKey = (keyId: string) => {
-        const key = apiKeys.find((k) => k.id === keyId);
-        setApiKeys((prev) => prev.filter((k) => k.id !== keyId));
-        toast({
-            title: 'API Key Deleted',
-            description: `"${key?.name}" has been revoked.`,
-            variant: 'success'
-        });
-        setShowDeleteApiKeyConfirm(null);
-    };
-
-    const handleCopyApiKey = (key: string) => {
-        navigator.clipboard.writeText(key);
-        toast({
-            title: 'Copied',
-            description: 'API key copied to clipboard.',
-            variant: 'info'
-        });
+    const handleBillingFieldChange = (key: string, value: string) => {
+        setBillingFields(prev => ({ ...prev, [key]: value }));
     };
 
     const tabs: {
@@ -480,6 +397,11 @@ export default function SettingsPage({
                 id: 'data',
                 label: 'Data',
                 icon: Database
+            },
+            {
+                id: 'catalog',
+                label: 'Catalog',
+                icon: Tag
             }
         ];
 
@@ -539,62 +461,66 @@ export default function SettingsPage({
                                     </div>
                                 </CardHeader>
                                 <CardContent className="space-y-4 pt-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="orgName">Organization Name</Label>
-                                            <Input id="orgName" defaultValue="Designient" />
+                                    {isSettingsLoading ? (
+                                        <div className="flex justify-center py-8">
+                                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="orgSlug">Organization Slug</Label>
-                                            <div className="flex rounded-md shadow-sm">
-                                                <Input
-                                                    id="orgSlug"
-                                                    defaultValue="designient"
-                                                    className="rounded-r-none"
-                                                />
-                                                <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-border bg-muted text-muted-foreground text-sm">
-                                                    .designient.com
-                                                </span>
+                                    ) : (
+                                        <>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="orgName">Organization Name</Label>
+                                                    <Input id="orgName" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="orgSlug">Organization Slug</Label>
+                                                    <div className="flex rounded-md shadow-sm">
+                                                        <Input
+                                                            id="orgSlug"
+                                                            value={orgSlug}
+                                                            onChange={(e) => setOrgSlug(e.target.value)}
+                                                            className="rounded-r-none"
+                                                        />
+                                                        <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-border bg-muted text-muted-foreground text-sm">
+                                                            .designient.com
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="supportEmail">Support Email</Label>
-                                            <Input
-                                                id="supportEmail"
-                                                type="email"
-                                                defaultValue="support@designient.com"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="timezone">Timezone</Label>
-                                            <Select
-                                                id="timezone"
-                                                options={[
-                                                    {
-                                                        value: 'Asia/Kolkata',
-                                                        label: 'India Standard Time (IST)'
-                                                    },
-                                                    {
-                                                        value: 'America/New_York',
-                                                        label: 'Eastern Time (ET)'
-                                                    },
-                                                    {
-                                                        value: 'America/Los_Angeles',
-                                                        label: 'Pacific Time (PT)'
-                                                    }
-                                                ]}
-                                                defaultValue="Asia/Kolkata"
-                                            />
-                                        </div>
-                                    </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="supportEmail">Support Email</Label>
+                                                    <Input
+                                                        id="supportEmail"
+                                                        type="email"
+                                                        value={supportEmail}
+                                                        onChange={(e) => setSupportEmail(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="timezone">Timezone</Label>
+                                                    <Select
+                                                        id="timezone"
+                                                        options={[
+                                                            { value: 'Asia/Kolkata', label: 'India Standard Time (IST)' },
+                                                            { value: 'America/New_York', label: 'Eastern Time (ET)' },
+                                                            { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+                                                            { value: 'Europe/London', label: 'Greenwich Mean Time (GMT)' },
+                                                            { value: 'Europe/Berlin', label: 'Central European Time (CET)' },
+                                                        ]}
+                                                        value={timezone}
+                                                        onChange={(e) => setTimezone(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </CardContent>
                                 <CardFooter className="bg-muted/20 border-t border-border/50 flex justify-end py-3">
                                     <Button
                                         onClick={handleSave}
-                                        disabled={isSaving}
+                                        disabled={isSaving || isSettingsLoading}
                                         className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
                                     >
                                         <Save className="h-4 w-4" />
@@ -656,21 +582,25 @@ export default function SettingsPage({
                                     <div className="space-y-3">
                                         <Label>Primary Brand Color</Label>
                                         <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-md bg-emerald-600 shadow-sm ring-2 ring-offset-2 ring-offset-background ring-emerald-600/50"></div>
+                                            <div className="h-10 w-10 rounded-md shadow-sm ring-2 ring-offset-2 ring-offset-background ring-emerald-600/50" style={{ backgroundColor: primaryColor }}></div>
                                             <Input
                                                 className="w-32 font-mono"
-                                                defaultValue="#059669"
+                                                value={primaryColor}
+                                                onChange={(e) => setPrimaryColor(e.target.value)}
                                             />
-                                            <span className="text-xs text-muted-foreground">
-                                                Current: Emerald
-                                            </span>
+                                            <input
+                                                type="color"
+                                                value={primaryColor}
+                                                onChange={(e) => setPrimaryColor(e.target.value)}
+                                                className="h-8 w-8 rounded cursor-pointer border-0"
+                                            />
                                         </div>
                                     </div>
                                 </CardContent>
                                 <CardFooter className="bg-muted/20 border-t border-border/50 flex justify-end py-3">
                                     <Button
                                         onClick={handleSave}
-                                        disabled={isSaving}
+                                        disabled={isSaving || isSettingsLoading}
                                         className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
                                     >
                                         <Save className="h-4 w-4" />
@@ -685,128 +615,15 @@ export default function SettingsPage({
                     {activeTab === 'team' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <Card className="bg-white dark:bg-card border-border/50">
-                                <CardHeader>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <Users className="h-5 w-5 text-muted-foreground" />
-                                            <div>
-                                                <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                                                    Team Members
-                                                </CardTitle>
-                                                <CardDescription>
-                                                    Manage who has access to your dashboard.
-                                                </CardDescription>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            size="sm"
-                                            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                            onClick={() => setShowInviteModal(true)}
-                                        >
-                                            <Mail className="h-3.5 w-3.5" />
-                                            Invite Member
-                                        </Button>
+                                <CardContent className="flex flex-col items-center justify-center py-16">
+                                    <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                                        <Users className="h-7 w-7 text-emerald-600" />
                                     </div>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    <div className="divide-y divide-border/50">
-                                        {teamMembers.map((member) => (
-                                            <div
-                                                key={member.id}
-                                                className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-semibold text-sm">
-                                                        {member.name
-                                                            .split(' ')
-                                                            .map((n) => n[0])
-                                                            .join('')}
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="text-sm font-medium text-foreground">
-                                                                {member.name}
-                                                            </p>
-                                                            <Badge
-                                                                variant={
-                                                                    member.status === 'active'
-                                                                        ? 'success'
-                                                                        : 'neutral'
-                                                                }
-                                                                className="text-[10px] px-1.5 py-0"
-                                                            >
-                                                                {member.status === 'active'
-                                                                    ? 'Active'
-                                                                    : 'Invited'}
-                                                            </Badge>
-                                                        </div>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {member.email} •{' '}
-                                                            {member.role
-                                                                .split('_')
-                                                                .map(
-                                                                    (w) => w.charAt(0).toUpperCase() + w.slice(1)
-                                                                )
-                                                                .join(' ')}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    {member.role === 'institute_admin' ? (
-                                                        <span className="text-xs text-muted-foreground px-3">
-                                                            Owner
-                                                        </span>
-                                                    ) : showRemoveMemberConfirm === member.id ? (
-                                                        <div className="flex gap-1">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-7 text-xs"
-                                                                onClick={() => setShowRemoveMemberConfirm(null)}
-                                                            >
-                                                                Cancel
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                                onClick={() => handleRemoveMember(member.id)}
-                                                            >
-                                                                Confirm
-                                                            </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-7 text-xs"
-                                                                onClick={() =>
-                                                                    member.status === 'invited'
-                                                                        ? handleResendInvite(member.id)
-                                                                        : handleEditMember(member.id)
-                                                                }
-                                                            >
-                                                                {member.status === 'invited'
-                                                                    ? 'Resend'
-                                                                    : 'Edit'}
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                                onClick={() =>
-                                                                    setShowRemoveMemberConfirm(member.id)
-                                                                }
-                                                            >
-                                                                Remove
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <h3 className="text-lg font-semibold text-foreground mb-1">Team Management</h3>
+                                    <p className="text-sm text-muted-foreground text-center max-w-md">
+                                        Invite team members, assign roles, and manage permissions. This feature is coming soon.
+                                    </p>
+                                    <Badge variant="outline" className="mt-4 text-xs">Coming Soon</Badge>
                                 </CardContent>
                             </Card>
                         </div>
@@ -834,97 +651,61 @@ export default function SettingsPage({
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                 <h3 className="text-base font-semibold tracking-tight text-emerald-700">
-                                                    {mockSubscription.plan.toUpperCase()} PLAN
+                                                    GROWTH PLAN
                                                 </h3>
                                                 <Badge variant="success" className="text-[10px]">
                                                     Active
                                                 </Badge>
                                             </div>
                                             <span className="font-semibold text-foreground">
-                                                ₹{mockSubscription.price.toLocaleString()}/month
+                                                ₹24,999/month
                                             </span>
                                         </div>
                                         <div className="h-px bg-emerald-200 w-full my-3"></div>
                                         <div className="flex items-center justify-between text-sm">
                                             <span className="text-muted-foreground">
-                                                Renews on {mockSubscription.currentPeriodEnd}
+                                                Plan management coming soon
                                             </span>
-                                            <Button variant="outline" size="sm" className="h-7">
-                                                Manage Plan
-                                            </Button>
                                         </div>
                                     </div>
 
                                     <div className="space-y-4">
-                                        <h4 className="text-sm font-medium">Usage This Month</h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="text-muted-foreground">
-                                                        Students
-                                                    </span>
-                                                    <span className="font-medium">
-                                                        {mockSubscription.studentCount} /{' '}
-                                                        {mockSubscription.studentLimit}
-                                                    </span>
+                                        <h4 className="text-sm font-medium">Current Usage</h4>
+                                        {isSubLoading ? (
+                                            <div className="flex justify-center py-4">
+                                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between text-xs">
+                                                        <span className="text-muted-foreground">Students</span>
+                                                        <span className="font-medium">{realStudentCount} / 500</span>
+                                                    </div>
+                                                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min((realStudentCount / 500) * 100, 100)}%` }}></div>
+                                                    </div>
                                                 </div>
-                                                <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-emerald-500 rounded-full"
-                                                        style={{
-                                                            width: `${(mockSubscription.studentCount /
-                                                                    mockSubscription.studentLimit) *
-                                                                100
-                                                                }%`
-                                                        }}
-                                                    ></div>
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between text-xs">
+                                                        <span className="text-muted-foreground">Mentors</span>
+                                                        <span className="font-medium">{realMentorCount} / 20</span>
+                                                    </div>
+                                                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min((realMentorCount / 20) * 100, 100)}%` }}></div>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between text-xs">
+                                                        <span className="text-muted-foreground">Active Cohorts</span>
+                                                        <span className="font-medium">{realCohortCount} / 25</span>
+                                                    </div>
+                                                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min((realCohortCount / 25) * 100, 100)}%` }}></div>
+                                                    </div>
                                                 </div>
                                             </div>
-
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="text-muted-foreground">Mentors</span>
-                                                    <span className="font-medium">
-                                                        {mockSubscription.mentorCount} /{' '}
-                                                        {mockSubscription.mentorLimit}
-                                                    </span>
-                                                </div>
-                                                <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-emerald-500 rounded-full"
-                                                        style={{
-                                                            width: `${(mockSubscription.mentorCount /
-                                                                    mockSubscription.mentorLimit) *
-                                                                100
-                                                                }%`
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="text-muted-foreground">
-                                                        Active Cohorts
-                                                    </span>
-                                                    <span className="font-medium">
-                                                        {mockSubscription.cohortCount} /{' '}
-                                                        {mockSubscription.cohortLimit}
-                                                    </span>
-                                                </div>
-                                                <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-emerald-500 rounded-full"
-                                                        style={{
-                                                            width: `${(mockSubscription.cohortCount /
-                                                                    mockSubscription.cohortLimit) *
-                                                                100
-                                                                }%`
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -943,45 +724,65 @@ export default function SettingsPage({
                                                 Billing & Compliance
                                             </CardTitle>
                                             <CardDescription>
-                                                Configure GST and business details for invoicing.
+                                                Configure tax compliance and business details for invoicing.
                                             </CardDescription>
                                         </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="space-y-4 pt-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="gstNumber">GST Number (GSTIN)</Label>
-                                            <Input
-                                                id="gstNumber"
-                                                placeholder="22AAAAA0000A1Z5"
-                                                defaultValue="27AABCD1234E1Z5"
-                                            />
+                                    {isSettingsLoading ? (
+                                        <div className="flex justify-center py-8">
+                                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="businessPan">Business PAN</Label>
-                                            <Input
-                                                id="businessPan"
-                                                placeholder="AAAAA0000A"
-                                                defaultValue="AABCD1234E"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="businessName">
-                                            Registered Business Name
-                                        </Label>
-                                        <Input
-                                            id="businessName"
-                                            placeholder="Your registered business name"
-                                            defaultValue="Designient Education Pvt. Ltd."
-                                        />
-                                    </div>
+                                    ) : (
+                                        <>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="billingCountry">Country / Region</Label>
+                                                <Select
+                                                    id="billingCountry"
+                                                    options={[
+                                                        { value: 'IN', label: 'India' },
+                                                        { value: 'US', label: 'United States' },
+                                                        { value: 'GB', label: 'United Kingdom' },
+                                                        { value: 'EU', label: 'European Union' },
+                                                    ]}
+                                                    value={billingCountry}
+                                                    onChange={(e) => {
+                                                        setBillingCountry(e.target.value);
+                                                        setBillingFields({});
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {(complianceFieldsByCountry[billingCountry] || []).map((field) => (
+                                                    <div key={field.key} className="space-y-1.5">
+                                                        <Label htmlFor={field.key}>{field.label}</Label>
+                                                        {field.key === 'euCountry' ? (
+                                                            <Select
+                                                                id={field.key}
+                                                                options={euCountryOptions}
+                                                                value={billingFields[field.key] || ''}
+                                                                onChange={(e) => handleBillingFieldChange(field.key, e.target.value)}
+                                                            />
+                                                        ) : (
+                                                            <Input
+                                                                id={field.key}
+                                                                placeholder={field.placeholder}
+                                                                value={billingFields[field.key] || ''}
+                                                                onChange={(e) => handleBillingFieldChange(field.key, e.target.value)}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
                                 </CardContent>
                                 <CardFooter className="bg-muted/20 border-t border-border/50 flex justify-end py-3">
                                     <Button
                                         onClick={handleSave}
-                                        disabled={isSaving}
+                                        disabled={isSaving || isSettingsLoading}
                                         className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
                                     >
                                         <Save className="h-4 w-4" />
@@ -1010,52 +811,90 @@ export default function SettingsPage({
                                     </div>
                                 </CardHeader>
                                 <CardContent className="space-y-4 pt-4">
-                                    <div className="space-y-3">
-                                        <div className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-card hover:bg-muted/20 transition-colors">
-                                            <input
-                                                type="checkbox"
-                                                id="whatsappNotif"
-                                                className="mt-1 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                                                defaultChecked
-                                            />
-                                            <div>
-                                                <label
-                                                    htmlFor="whatsappNotif"
-                                                    className="text-sm font-medium text-foreground block"
-                                                >
-                                                    WhatsApp Notifications
-                                                </label>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Send updates via WhatsApp (requires student opt-in).
-                                                </p>
-                                            </div>
+                                    {isSettingsLoading ? (
+                                        <div className="flex justify-center py-8">
+                                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                         </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <div className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-card hover:bg-muted/20 transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    id="whatsappNotif"
+                                                    className="mt-1 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                                    checked={whatsappEnabled}
+                                                    onChange={(e) => setWhatsappEnabled(e.target.checked)}
+                                                />
+                                                <div>
+                                                    <label htmlFor="whatsappNotif" className="text-sm font-medium text-foreground block">
+                                                        WhatsApp Notifications
+                                                    </label>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Send updates via WhatsApp (requires student opt-in).
+                                                    </p>
+                                                </div>
+                                            </div>
 
-                                        <div className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-card hover:bg-muted/20 transition-colors">
-                                            <input
-                                                type="checkbox"
-                                                id="emailNotif"
-                                                className="mt-1 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                                                defaultChecked
-                                            />
-                                            <div>
-                                                <label
-                                                    htmlFor="emailNotif"
-                                                    className="text-sm font-medium text-foreground block"
-                                                >
-                                                    Email Notifications
-                                                </label>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Primary channel for detailed communications.
-                                                </p>
+                                            <div className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-card hover:bg-muted/20 transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    id="emailNotif"
+                                                    className="mt-1 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                                    checked={emailEnabled}
+                                                    onChange={(e) => setEmailEnabled(e.target.checked)}
+                                                />
+                                                <div>
+                                                    <label htmlFor="emailNotif" className="text-sm font-medium text-foreground block">
+                                                        Email Notifications
+                                                    </label>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Primary channel for detailed communications.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-card hover:bg-muted/20 transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    id="smsNotif"
+                                                    className="mt-1 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                                    checked={smsEnabled}
+                                                    onChange={(e) => setSmsEnabled(e.target.checked)}
+                                                />
+                                                <div>
+                                                    <label htmlFor="smsNotif" className="text-sm font-medium text-foreground block">
+                                                        SMS Notifications
+                                                    </label>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Send critical alerts via SMS.
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-card hover:bg-muted/20 transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    id="pushNotif"
+                                                    className="mt-1 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                                    checked={pushEnabled}
+                                                    onChange={(e) => setPushEnabled(e.target.checked)}
+                                                />
+                                                <div>
+                                                    <label htmlFor="pushNotif" className="text-sm font-medium text-foreground block">
+                                                        Push Notifications
+                                                    </label>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        In-app push notifications for real-time updates.
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </CardContent>
                                 <CardFooter className="bg-muted/20 border-t border-border/50 flex justify-end py-3">
                                     <Button
                                         onClick={handleSave}
-                                        disabled={isSaving}
+                                        disabled={isSaving || isSettingsLoading}
                                         className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
                                     >
                                         <Save className="h-4 w-4" />
@@ -1070,51 +909,15 @@ export default function SettingsPage({
                     {activeTab === 'security' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <Card className="bg-white dark:bg-card border-border/50">
-                                <CardHeader>
-                                    <div className="flex items-center gap-2">
-                                        <Lock className="h-5 w-5 text-muted-foreground" />
-                                        <div>
-                                            <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                                                Two-Factor Authentication
-                                            </CardTitle>
-                                            <CardDescription>
-                                                Add an extra layer of security to your account.
-                                            </CardDescription>
-                                        </div>
+                                <CardContent className="flex flex-col items-center justify-center py-16">
+                                    <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                                        <Shield className="h-7 w-7 text-emerald-600" />
                                     </div>
-                                </CardHeader>
-                                <CardContent className="space-y-4 pt-4">
-                                    <div className="flex items-center justify-between p-4 rounded-lg border border-emerald-200 bg-emerald-50/50">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                <Smartphone className="h-5 w-5 text-emerald-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium">Authenticator App</p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Use Google Authenticator or similar apps
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Badge variant="success">Enabled</Badge>
-                                    </div>
-
-                                    <div className="flex items-center justify-between p-4 rounded-lg border border-border/50">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                                                <Mail className="h-5 w-5 text-muted-foreground" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium">Email OTP</p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Receive codes via email
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Button variant="outline" size="sm">
-                                            Enable
-                                        </Button>
-                                    </div>
+                                    <h3 className="text-lg font-semibold text-foreground mb-1">Security Settings</h3>
+                                    <p className="text-sm text-muted-foreground text-center max-w-md">
+                                        Two-factor authentication, session management, and login policies. This feature is coming soon.
+                                    </p>
+                                    <Badge variant="outline" className="mt-4 text-xs">Coming Soon</Badge>
                                 </CardContent>
                             </Card>
                         </div>
@@ -1124,124 +927,15 @@ export default function SettingsPage({
                     {activeTab === 'integrations' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <Card className="bg-white dark:bg-card border-border/50">
-                                <CardHeader>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <Key className="h-5 w-5 text-muted-foreground" />
-                                            <div>
-                                                <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                                                    API Keys
-                                                </CardTitle>
-                                                <CardDescription>
-                                                    Manage API keys for external integrations.
-                                                </CardDescription>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            size="sm"
-                                            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                            onClick={() => setShowCreateApiKeyModal(true)}
-                                        >
-                                            <Plus className="h-3.5 w-3.5" />
-                                            Create Key
-                                        </Button>
+                                <CardContent className="flex flex-col items-center justify-center py-16">
+                                    <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                                        <Key className="h-7 w-7 text-emerald-600" />
                                     </div>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    <div className="divide-y divide-border/50">
-                                        {apiKeys.map((apiKey) => (
-                                            <div
-                                                key={apiKey.id}
-                                                className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-9 w-9 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                        <Key className="h-4 w-4 text-emerald-600" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="text-sm font-medium">
-                                                                {apiKey.name}
-                                                            </p>
-                                                            <Badge
-                                                                variant={
-                                                                    apiKey.status === 'active'
-                                                                        ? 'success'
-                                                                        : 'destructive'
-                                                                }
-                                                                className="text-[10px]"
-                                                            >
-                                                                {apiKey.status}
-                                                            </Badge>
-                                                        </div>
-                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                            <code className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
-                                                                {showApiKey === apiKey.id
-                                                                    ? 'sk_live_************************'
-                                                                    : apiKey.key}
-                                                            </code>
-                                                            <button
-                                                                onClick={() =>
-                                                                    setShowApiKey(
-                                                                        showApiKey === apiKey.id ? null : apiKey.id
-                                                                    )
-                                                                }
-                                                                className="text-muted-foreground hover:text-foreground"
-                                                            >
-                                                                {showApiKey === apiKey.id ? (
-                                                                    <EyeOff className="h-3.5 w-3.5" />
-                                                                ) : (
-                                                                    <Eye className="h-3.5 w-3.5" />
-                                                                )}
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleCopyApiKey(apiKey.key)}
-                                                                className="text-muted-foreground hover:text-foreground"
-                                                            >
-                                                                <Copy className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs text-muted-foreground">
-                                                        Last used: {apiKey.lastUsed || 'Never'}
-                                                    </span>
-                                                    {showDeleteApiKeyConfirm === apiKey.id ? (
-                                                        <div className="flex gap-1">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-7"
-                                                                onClick={() => setShowDeleteApiKeyConfirm(null)}
-                                                            >
-                                                                Cancel
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                                onClick={() => handleDeleteApiKey(apiKey.id)}
-                                                            >
-                                                                Delete
-                                                            </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                            onClick={() =>
-                                                                setShowDeleteApiKeyConfirm(apiKey.id)
-                                                            }
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <h3 className="text-lg font-semibold text-foreground mb-1">Integrations & API</h3>
+                                    <p className="text-sm text-muted-foreground text-center max-w-md">
+                                        API keys, webhooks, and third-party integrations. This feature is coming soon.
+                                    </p>
+                                    <Badge variant="outline" className="mt-4 text-xs">Coming Soon</Badge>
                                 </CardContent>
                             </Card>
                         </div>
@@ -1272,7 +966,16 @@ export default function SettingsPage({
                                 </CardHeader>
                                 <CardContent className="p-0">
                                     <div className="divide-y divide-border/50">
-                                        {mockAuditLogs.map((log) => (
+                                        {isAuditLoading ? (
+                                            <div className="flex justify-center py-8">
+                                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                            </div>
+                                        ) : auditLogs.length === 0 ? (
+                                            <div className="text-center py-8 text-sm text-muted-foreground">
+                                                No audit log entries yet.
+                                            </div>
+                                        ) : null}
+                                        {auditLogs.map((log) => (
                                             <div
                                                 key={log.id}
                                                 className="flex items-start gap-4 p-4 hover:bg-muted/30 transition-colors"
@@ -1317,7 +1020,7 @@ export default function SettingsPage({
                                                     <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
                                                         <span className="flex items-center gap-1">
                                                             <Clock className="h-3 w-3" />
-                                                            {log.timestamp}
+                                                            {new Date(log.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                         </span>
                                                         <span className="flex items-center gap-1">
                                                             <Globe className="h-3 w-3" />
@@ -1342,272 +1045,120 @@ export default function SettingsPage({
                     {activeTab === 'data' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <Card className="bg-white dark:bg-card border-border/50">
+                                <CardContent className="flex flex-col items-center justify-center py-16">
+                                    <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                                        <Database className="h-7 w-7 text-emerald-600" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-foreground mb-1">Data Management</h3>
+                                    <p className="text-sm text-muted-foreground text-center max-w-md">
+                                        Export data, manage backups, and configure retention policies. This feature is coming soon.
+                                    </p>
+                                    <Badge variant="outline" className="mt-4 text-xs">Coming Soon</Badge>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+
+                    {/* Catalog Tab */}
+                    {activeTab === 'catalog' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <Card className="bg-white dark:bg-card border-border/50">
                                 <CardHeader>
                                     <div className="flex items-center gap-2">
-                                        <Download className="h-5 w-5 text-muted-foreground" />
+                                        <Tag className="h-5 w-5 text-muted-foreground" />
                                         <div>
                                             <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                                                Export Data
+                                                Mentor Specialties
                                             </CardTitle>
                                             <CardDescription>
-                                                Download your data in various formats.
+                                                Configure the list of specialties available when adding or editing mentors.
                                             </CardDescription>
                                         </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="space-y-4 pt-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="p-4 rounded-lg border border-border/50 hover:border-emerald-300 transition-colors">
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                    <Users className="h-5 w-5 text-emerald-600" />
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium text-sm">Students</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        All student records
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Button variant="outline" size="sm" className="flex-1">
-                                                    CSV
-                                                </Button>
-                                                <Button variant="outline" size="sm" className="flex-1">
-                                                    Excel
-                                                </Button>
-                                                <Button variant="outline" size="sm" className="flex-1">
-                                                    JSON
-                                                </Button>
-                                            </div>
+                                    {isCatalogLoading ? (
+                                        <div className="flex justify-center py-8">
+                                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                         </div>
+                                    ) : (
+                                        <>
+                                            {mentorSpecialties.length === 0 && (
+                                                <p className="text-sm text-muted-foreground py-4 text-center">
+                                                    No specialties configured yet. Add one below.
+                                                </p>
+                                            )}
+                                            <div className="space-y-2">
+                                                {mentorSpecialties.map((specialty) => (
+                                                    <div
+                                                        key={specialty.value}
+                                                        className="flex items-center gap-3 group"
+                                                    >
+                                                        <GripVertical className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+                                                        <Input
+                                                            value={specialty.label}
+                                                            onChange={(e) =>
+                                                                handleUpdateSpecialtyLabel(specialty.value, e.target.value)
+                                                            }
+                                                            className="flex-1"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveSpecialty(specialty.value)}
+                                                            className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                                                            title="Remove specialty"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
 
-                                        <div className="p-4 rounded-lg border border-border/50 hover:border-emerald-300 transition-colors">
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                                    <CreditCard className="h-5 w-5 text-emerald-600" />
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium text-sm">Payments</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        Transaction history
-                                                    </p>
-                                                </div>
+                                            <div className="flex items-center gap-3 pt-2 border-t border-border/50">
+                                                <Input
+                                                    placeholder="e.g., Data Science"
+                                                    value={newSpecialtyLabel}
+                                                    onChange={(e) => setNewSpecialtyLabel(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            handleAddSpecialty();
+                                                        }
+                                                    }}
+                                                    className="flex-1"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={handleAddSpecialty}
+                                                    disabled={!newSpecialtyLabel.trim()}
+                                                    className="gap-1.5 flex-shrink-0"
+                                                >
+                                                    <Plus className="h-4 w-4" />
+                                                    Add
+                                                </Button>
                                             </div>
-                                            <div className="flex gap-2">
-                                                <Button variant="outline" size="sm" className="flex-1">
-                                                    CSV
-                                                </Button>
-                                                <Button variant="outline" size="sm" className="flex-1">
-                                                    Excel
-                                                </Button>
-                                                <Button variant="outline" size="sm" className="flex-1">
-                                                    JSON
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        </>
+                                    )}
                                 </CardContent>
-                            </Card>
-
-                            <Card className="border-amber-200 bg-amber-50/30">
-                                <CardContent className="p-4">
-                                    <div className="flex items-start gap-3">
-                                        <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-sm font-medium text-amber-800">
-                                                Data Retention Policy
-                                            </p>
-                                            <p className="text-xs text-amber-700 mt-1">
-                                                Exported files are available for download for 7 days.
-                                                Full backups are retained for 30 days.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </CardContent>
+                                <CardFooter className="bg-muted/20 border-t border-border/50 flex justify-between items-center py-3">
+                                    <p className="text-xs text-muted-foreground">
+                                        {mentorSpecialties.length} {mentorSpecialties.length === 1 ? 'specialty' : 'specialties'} configured
+                                    </p>
+                                    <Button
+                                        onClick={handleSaveCatalog}
+                                        disabled={isCatalogSaving || isCatalogLoading}
+                                        className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    >
+                                        <Save className="h-4 w-4" />
+                                        {isCatalogSaving ? 'Saving...' : 'Save Specialties'}
+                                    </Button>
+                                </CardFooter>
                             </Card>
                         </div>
                     )}
                 </div>
 
-                {/* Invite Member Modal */}
-                {showInviteModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center">
-                        <div
-                            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
-                            onClick={() => {
-                                setShowInviteModal(false);
-                                setEditingMemberId(null);
-                            }}
-                        />
-                        <div className="relative z-50 w-full max-w-md mx-4 bg-background rounded-xl shadow-xl border border-border/60 overflow-hidden">
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                                <div>
-                                    <h2 className="text-lg font-semibold">
-                                        {editingMemberId ? 'Edit Team Member' : 'Invite Team Member'}
-                                    </h2>
-                                    <p className="text-sm text-muted-foreground">
-                                        {editingMemberId
-                                            ? 'Update role and permissions'
-                                            : 'Send an invitation to join your team'}
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        setShowInviteModal(false);
-                                        setEditingMemberId(null);
-                                    }}
-                                    className="p-1.5 rounded-md hover:bg-muted transition-colors"
-                                >
-                                    <X className="h-4 w-4 text-muted-foreground" />
-                                </button>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <div className="space-y-1.5">
-                                    <Label>Email Address</Label>
-                                    <Input
-                                        type="email"
-                                        placeholder="colleague@company.com"
-                                        value={inviteEmail}
-                                        onChange={(e) => setInviteEmail(e.target.value)}
-                                        disabled={!!editingMemberId}
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label>Role</Label>
-                                    <Select
-                                        options={roleOptions}
-                                        value={inviteRole}
-                                        onChange={(e) => setInviteRole(e.target.value as UserRole)}
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex gap-3 px-6 py-4 border-t border-border bg-muted/30">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                        setShowInviteModal(false);
-                                        setEditingMemberId(null);
-                                    }}
-                                    className="flex-1"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={handleInviteMember}
-                                    className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                    disabled={!inviteEmail.trim()}
-                                >
-                                    <Mail className="h-4 w-4" />
-                                    {editingMemberId ? 'Save Changes' : 'Send Invitation'}
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Create API Key Modal */}
-                {showCreateApiKeyModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center">
-                        <div
-                            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
-                            onClick={() => setShowCreateApiKeyModal(false)}
-                        />
-                        <div className="relative z-50 w-full max-w-md mx-4 bg-background rounded-xl shadow-xl border border-border/60 overflow-hidden">
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                                <div>
-                                    <h2 className="text-lg font-semibold">Create API Key</h2>
-                                    <p className="text-sm text-muted-foreground">
-                                        Generate a new API key for integrations
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => setShowCreateApiKeyModal(false)}
-                                    className="p-1.5 rounded-md hover:bg-muted transition-colors"
-                                >
-                                    <X className="h-4 w-4 text-muted-foreground" />
-                                </button>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <div className="space-y-1.5">
-                                    <Label>Key Name</Label>
-                                    <Input
-                                        placeholder="e.g., Production API"
-                                        value={newApiKeyName}
-                                        onChange={(e) => setNewApiKeyName(e.target.value)}
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label>Permissions</Label>
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="checkbox"
-                                                id="perm-read"
-                                                checked={newApiKeyPermissions.includes('read')}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setNewApiKeyPermissions((prev) => [...prev, 'read']);
-                                                    } else {
-                                                        setNewApiKeyPermissions((prev) =>
-                                                            prev.filter((p) => p !== 'read')
-                                                        );
-                                                    }
-                                                }}
-                                                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                                            />
-                                            <label htmlFor="perm-read" className="text-sm">
-                                                Read (view data)
-                                            </label>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="checkbox"
-                                                id="perm-write"
-                                                checked={newApiKeyPermissions.includes('write')}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setNewApiKeyPermissions((prev) => [
-                                                            ...prev,
-                                                            'write'
-                                                        ]);
-                                                    } else {
-                                                        setNewApiKeyPermissions((prev) =>
-                                                            prev.filter((p) => p !== 'write')
-                                                        );
-                                                    }
-                                                }}
-                                                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                                            />
-                                            <label htmlFor="perm-write" className="text-sm">
-                                                Write (create/update data)
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex gap-3 px-6 py-4 border-t border-border bg-muted/30">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setShowCreateApiKeyModal(false)}
-                                    className="flex-1"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={handleCreateApiKey}
-                                    className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                    disabled={
-                                        !newApiKeyName.trim() || newApiKeyPermissions.length === 0
-                                    }
-                                >
-                                    <Key className="h-4 w-4" />
-                                    Create Key
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         </DashboardLayout>
     );

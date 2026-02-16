@@ -5,7 +5,7 @@ import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 import { DrawerSection, DrawerDivider } from '../ui/Drawer';
-import { AlertCircle, MessageCircle } from 'lucide-react';
+import { AlertCircle, MessageCircle, Check, X } from 'lucide-react';
 
 // Types
 export interface MentorFormData {
@@ -13,10 +13,15 @@ export interface MentorFormData {
     email: string;
     phone: string;
     whatsappOptIn: boolean;
-    specialty: string;
+    specialty: string[];
     status: 'Active' | 'Inactive';
     maxCohorts: number;
     bio: string;
+}
+
+interface SelectOption {
+    value: string;
+    label: string;
 }
 
 interface MentorFormProps {
@@ -24,18 +29,8 @@ interface MentorFormProps {
     onSubmit: (data: MentorFormData) => void;
     onCancel: () => void;
     mode?: 'create' | 'edit';
+    specialtyOptions?: SelectOption[];
 }
-
-// Options
-const specialtyOptions = [
-    { value: 'design-systems', label: 'Design Systems' },
-    { value: 'product-design', label: 'Product Design' },
-    { value: 'ux-strategy', label: 'UX Strategy' },
-    { value: 'ui-design', label: 'UI Design' },
-    { value: 'ux-research', label: 'UX Research' },
-    { value: 'interaction-design', label: 'Interaction Design' },
-    { value: 'career-development', label: 'Career Development' }
-];
 
 const statusOptions = [
     { value: 'Active', label: 'Active' },
@@ -47,7 +42,7 @@ const defaultFormData: MentorFormData = {
     email: '',
     phone: '',
     whatsappOptIn: true,
-    specialty: '',
+    specialty: [],
     status: 'Active',
     maxCohorts: 3,
     bio: ''
@@ -57,7 +52,8 @@ export function MentorForm({
     initialData,
     onSubmit,
     onCancel,
-    mode = 'create'
+    mode = 'create',
+    specialtyOptions = [],
 }: MentorFormProps) {
     const [formData, setFormData] = useState<MentorFormData>({
         ...defaultFormData,
@@ -85,7 +81,7 @@ export function MentorForm({
 
     const handleChange = (
         field: keyof MentorFormData,
-        value: string | number | boolean
+        value: string | string[] | number | boolean
     ) => {
         setFormData((prev) => ({
             ...prev,
@@ -128,8 +124,8 @@ export function MentorForm({
                 }
                 break;
             case 'specialty':
-                if (!formData.specialty) {
-                    error = 'Please select a specialty';
+                if (!formData.specialty || formData.specialty.length === 0) {
+                    error = 'Please select at least one specialty';
                 }
                 break;
             case 'status':
@@ -291,28 +287,84 @@ export function MentorForm({
                         </div>
                     )}
 
-                    {/* Specialty */}
+                    {/* Specialty (Multi-select) */}
                     <div className="space-y-1.5">
-                        <Label htmlFor="specialty" required>
-                            Specialty
+                        <Label required>
+                            Specialties
                         </Label>
-                        <Select
-                            id="specialty"
-                            placeholder="Select a specialty"
-                            options={specialtyOptions}
-                            value={formData.specialty}
-                            onChange={(e) => handleChange('specialty', e.target.value)}
-                            onBlur={() => handleBlur('specialty')}
-                            className={
-                                touched.specialty && errors.specialty
-                                    ? 'border-destructive'
-                                    : ''
-                            }
-                        />
+                        {formData.specialty.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                                {formData.specialty.map((val) => {
+                                    const opt = specialtyOptions.find(s => s.value === val);
+                                    return (
+                                        <span
+                                            key={val}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+                                        >
+                                            {opt?.label || val}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const next = formData.specialty.filter(v => v !== val);
+                                                    handleChange('specialty', next);
+                                                }}
+                                                className="ml-0.5 hover:text-destructive transition-colors"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        <div className="space-y-1">
+                            {specialtyOptions.map((opt) => {
+                                const isSelected = formData.specialty.includes(opt.value);
+                                return (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => {
+                                            const next = isSelected
+                                                ? formData.specialty.filter(v => v !== opt.value)
+                                                : [...formData.specialty, opt.value];
+                                            handleChange('specialty', next);
+                                            if (errors.specialty) {
+                                                setErrors(prev => ({ ...prev, specialty: undefined }));
+                                            }
+                                        }}
+                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all border ${
+                                            isSelected
+                                                ? 'bg-primary/5 border-primary/30 text-foreground'
+                                                : 'bg-transparent border-border/60 text-muted-foreground hover:bg-muted/40 hover:border-border'
+                                        }`}
+                                    >
+                                        <span className={isSelected ? 'font-medium' : ''}>
+                                            {opt.label}
+                                        </span>
+                                        {isSelected && (
+                                            <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                                                <Check className="h-3 w-3 text-primary-foreground" />
+                                            </div>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {specialtyOptions.length === 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                No specialties configured. Add them in Settings &rarr; Catalog.
+                            </p>
+                        )}
                         {touched.specialty && errors.specialty && (
                             <p className="text-xs text-destructive flex items-center gap-1">
                                 <AlertCircle className="h-3 w-3" />
                                 {errors.specialty}
+                            </p>
+                        )}
+                        {formData.specialty.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                {formData.specialty.length} {formData.specialty.length === 1 ? 'specialty' : 'specialties'} selected
                             </p>
                         )}
                     </div>

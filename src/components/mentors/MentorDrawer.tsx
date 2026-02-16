@@ -37,39 +37,6 @@ interface MentorDrawerProps {
     availableCohorts?: CohortForAssignment[];
 }
 
-const mockAvailableCohorts: CohortForAssignment[] = [
-    {
-        id: 'C-2024-001',
-        name: 'Spring 2024 Design Systems',
-        status: 'Active',
-        currentMentors: ['Sarah Chen', 'Mike Ross']
-    },
-    {
-        id: 'C-2024-002',
-        name: 'Winter 2024 Product Strategy',
-        status: 'Active',
-        currentMentors: ['Alex Kim', 'David Park']
-    },
-    {
-        id: 'C-2024-003',
-        name: 'Spring 2024 Foundations',
-        status: 'Upcoming',
-        currentMentors: ['Emily White', 'Jessica Lee']
-    },
-    {
-        id: 'C-2024-004',
-        name: 'Summer 2024 Interaction',
-        status: 'Upcoming',
-        currentMentors: ['Mike Ross', 'David Park']
-    },
-    {
-        id: 'C-2024-005',
-        name: 'Spring 2024 Career Prep',
-        status: 'Active',
-        currentMentors: ['Jessica Lee']
-    }
-];
-
 export function MentorDrawer({
     mentor,
     onUpdateMentor,
@@ -77,7 +44,7 @@ export function MentorDrawer({
     onEdit,
     onDelete,
     onSendMessage,
-    availableCohorts = mockAvailableCohorts
+    availableCohorts = []
 }: MentorDrawerProps) {
     const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);

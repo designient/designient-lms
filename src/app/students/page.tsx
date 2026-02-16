@@ -565,6 +565,8 @@ export default function StudentsPage() {
                             onAddNote={handleAddNote}
                             onUpdatePayment={handleUpdatePayment}
                             onSendMessage={handleSendMessage}
+                            mentorOptions={mentorOptionsList}
+                            cohortOptions={cohortOptions}
                         />
                     )}
 

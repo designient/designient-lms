@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageName } from '@/types';
@@ -25,170 +25,87 @@ import {
     BarChart3,
     PieChart,
     Calendar,
-    Award
+    Award,
+    Loader2,
+    Info
 } from 'lucide-react';
 import { CohortAnalytics, MentorAnalytics, RevenueData } from '@/types';
-
-// Mock Data
-const mockCohortAnalytics: CohortAnalytics[] = [
-    {
-        cohortId: 'C-2024-001',
-        cohortName: 'Spring 2024 Design Systems',
-        completionRate: 87,
-        averageProgress: 75,
-        dropoutRate: 4,
-        averageRating: 4.8,
-        totalStudents: 24
-    },
-    {
-        cohortId: 'C-2024-002',
-        cohortName: 'Winter 2024 Product Strategy',
-        completionRate: 82,
-        averageProgress: 60,
-        dropoutRate: 6,
-        averageRating: 4.6,
-        totalStudents: 18
-    },
-    {
-        cohortId: 'C-2024-003',
-        cohortName: 'Spring 2024 Foundations',
-        completionRate: 0,
-        averageProgress: 45,
-        dropoutRate: 3,
-        averageRating: 4.9,
-        totalStudents: 32
-    },
-    {
-        cohortId: 'C-2024-004',
-        cohortName: 'Summer 2024 Interaction',
-        completionRate: 0,
-        averageProgress: 20,
-        dropoutRate: 0,
-        averageRating: 4.7,
-        totalStudents: 28
-    }
-];
-
-const mockMentorAnalytics: MentorAnalytics[] = [
-    {
-        mentorId: 'M-001',
-        mentorName: 'Sarah Chen',
-        rating: 4.9,
-        totalSessions: 48,
-        completedSessions: 45,
-        studentsSatisfaction: 96,
-        activeStudents: 12
-    },
-    {
-        mentorId: 'M-002',
-        mentorName: 'Mike Ross',
-        rating: 4.7,
-        totalSessions: 36,
-        completedSessions: 32,
-        studentsSatisfaction: 88,
-        activeStudents: 10
-    },
-    {
-        mentorId: 'M-003',
-        mentorName: 'Alex Kim',
-        rating: 4.8,
-        totalSessions: 24,
-        completedSessions: 24,
-        studentsSatisfaction: 92,
-        activeStudents: 8
-    },
-    {
-        mentorId: 'M-004',
-        mentorName: 'Jessica Lee',
-        rating: 5.0,
-        totalSessions: 30,
-        completedSessions: 28,
-        studentsSatisfaction: 98,
-        activeStudents: 9
-    },
-    {
-        mentorId: 'M-005',
-        mentorName: 'David Park',
-        rating: 4.6,
-        totalSessions: 20,
-        completedSessions: 18,
-        studentsSatisfaction: 85,
-        activeStudents: 7
-    }
-];
-
-const mockRevenueData: RevenueData[] = [
-    {
-        month: 'Jan',
-        revenue: 320000,
-        collections: 300000,
-        pending: 20000
-    },
-    {
-        month: 'Feb',
-        revenue: 410000,
-        collections: 380000,
-        pending: 30000
-    },
-    {
-        month: 'Mar',
-        revenue: 480000,
-        collections: 450000,
-        pending: 30000
-    },
-    {
-        month: 'Apr',
-        revenue: 520000,
-        collections: 490000,
-        pending: 30000
-    },
-    {
-        month: 'May',
-        revenue: 490000,
-        collections: 460000,
-        pending: 30000
-    },
-    {
-        month: 'Jun',
-        revenue: 230000,
-        collections: 130000,
-        pending: 100000
-    }
-];
-
-const studentFunnel = [
-    {
-        status: 'Invited',
-        count: 45,
-        color: 'bg-muted-foreground'
-    },
-    {
-        status: 'Active',
-        count: 186,
-        color: 'bg-emerald-500'
-    },
-    {
-        status: 'Flagged',
-        count: 8,
-        color: 'bg-amber-500'
-    },
-    {
-        status: 'Completed',
-        count: 52,
-        color: 'bg-blue-500'
-    },
-    {
-        status: 'Dropped',
-        count: 12,
-        color: 'bg-red-500'
-    }
-];
+import { apiClient } from '@/lib/api-client';
 
 type AnalyticsTab = 'overview' | 'cohorts' | 'mentors' | 'revenue';
 
 export default function AnalyticsPage() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview');
+    const [isLoading, setIsLoading] = useState(true);
+
+    const [cohortAnalytics, setCohortAnalytics] = useState<CohortAnalytics[]>([]);
+    const [mentorAnalytics, setMentorAnalytics] = useState<MentorAnalytics[]>([]);
+    const [studentFunnel, setStudentFunnel] = useState<{ status: string; count: number; color: string }[]>([]);
+    const [totalStudents, setTotalStudents] = useState(0);
+    const [totalMentors, setTotalMentors] = useState(0);
+    const [totalCohorts, setTotalCohorts] = useState(0);
+
+    const fetchAnalyticsData = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const [cohortsRes, mentorsRes, studentsRes] = await Promise.all([
+                apiClient.get<{ cohorts: Array<{ id: string; name: string; status: string; capacity: number; _count?: { students: number } }> }>('/api/v1/cohorts?limit=50').catch(() => ({ cohorts: [] })),
+                apiClient.get<{ mentors: Array<{ id: string; name: string; email: string; rating?: number; cohortCount?: number; maxCohorts?: number; status: string }> }>('/api/v1/mentors?limit=50').catch(() => ({ mentors: [] })),
+                apiClient.get<{ students: Array<{ id: string; name: string; status: string }>, pagination: { total: number } }>('/api/v1/students?limit=50').catch(() => ({ students: [], pagination: { total: 0 } })),
+            ]);
+
+            setTotalCohorts(cohortsRes.cohorts.length);
+            setTotalMentors(mentorsRes.mentors.length);
+            setTotalStudents(studentsRes.pagination?.total ?? studentsRes.students.length);
+
+            // Build cohort analytics from real data
+            const cohortData: CohortAnalytics[] = cohortsRes.cohorts.map(c => ({
+                cohortId: c.id,
+                cohortName: c.name,
+                totalStudents: c._count?.students ?? 0,
+                completionRate: c.status === 'COMPLETED' ? 100 : 0,
+                averageProgress: c.status === 'COMPLETED' ? 100 : c.status === 'ACTIVE' ? 50 : 0,
+                dropoutRate: 0,
+                averageRating: 0,
+            }));
+            setCohortAnalytics(cohortData);
+
+            // Build mentor analytics from real data
+            const mentorData: MentorAnalytics[] = mentorsRes.mentors.map(m => ({
+                mentorId: m.id,
+                mentorName: m.name,
+                rating: m.rating ?? 0,
+                totalSessions: 0,
+                completedSessions: 0,
+                studentsSatisfaction: 0,
+                activeStudents: m.cohortCount ?? 0,
+            }));
+            setMentorAnalytics(mentorData);
+
+            // Build student funnel from status counts
+            const statusCounts: Record<string, number> = {};
+            for (const s of studentsRes.students) {
+                const mapped = ({ INVITED: 'Invited', ACTIVE: 'Active', FLAGGED: 'Flagged', DROPPED: 'Dropped', COMPLETED: 'Completed' } as Record<string, string>)[s.status] || s.status;
+                statusCounts[mapped] = (statusCounts[mapped] || 0) + 1;
+            }
+            const colorMap: Record<string, string> = { Invited: 'bg-muted-foreground', Active: 'bg-emerald-500', Flagged: 'bg-amber-500', Completed: 'bg-blue-500', Dropped: 'bg-red-500' };
+            const funnel = ['Invited', 'Active', 'Flagged', 'Completed', 'Dropped'].map(status => ({
+                status,
+                count: statusCounts[status] || 0,
+                color: colorMap[status] || 'bg-muted-foreground',
+            }));
+            setStudentFunnel(funnel);
+        } catch (error) {
+            console.error('Failed to fetch analytics data:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchAnalyticsData();
+    }, [fetchAnalyticsData]);
 
     const handleNavigate = (page: PageName) => {
         router.push(`/${page}`);
@@ -221,14 +138,12 @@ export default function AnalyticsPage() {
             }
         ];
 
-    const maxFunnelCount = Math.max(...studentFunnel.map((s) => s.count));
-    const maxRevenue = Math.max(...mockRevenueData.map((r) => r.revenue));
-    const totalRevenue = mockRevenueData.reduce((sum, r) => sum + r.revenue, 0);
-    const totalCollections = mockRevenueData.reduce(
-        (sum, r) => sum + r.collections,
-        0
-    );
-    const totalPending = mockRevenueData.reduce((sum, r) => sum + r.pending, 0);
+    const maxFunnelCount = Math.max(1, ...studentFunnel.map((s) => s.count));
+
+    const activeStudentCount = studentFunnel.find(s => s.status === 'Active')?.count ?? 0;
+    const avgRating = mentorAnalytics.length > 0
+        ? (mentorAnalytics.reduce((sum, m) => sum + m.rating, 0) / mentorAnalytics.length).toFixed(1)
+        : '0';
 
     return (
         <DashboardLayout
@@ -271,42 +186,41 @@ export default function AnalyticsPage() {
                     </nav>
                 </div>
 
+                {/* Loading State */}
+                {isLoading && (
+                    <div className="flex justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                )}
+
                 {/* Overview Tab */}
-                {activeTab === 'overview' && (
+                {activeTab === 'overview' && !isLoading && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         {/* Key Metrics */}
                         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                             <StatCard
-                                title="Total Revenue"
-                                value="₹24.5L"
-                                icon={IndianRupee}
-                                trend="+18%"
-                                trendUp={true}
-                                description="vs last month"
+                                title="Total Cohorts"
+                                value={String(totalCohorts)}
+                                icon={BarChart3}
+                                description="All time"
                             />
                             <StatCard
                                 title="Active Students"
-                                value="186"
+                                value={String(activeStudentCount)}
                                 icon={Users}
-                                trend="+12%"
-                                trendUp={true}
-                                description="vs last month"
+                                description={`${totalStudents} total`}
                             />
                             <StatCard
-                                title="Completion Rate"
-                                value="87%"
+                                title="Total Mentors"
+                                value={String(totalMentors)}
                                 icon={Target}
-                                trend="+5%"
-                                trendUp={true}
-                                description="vs last month"
+                                description="On platform"
                             />
                             <StatCard
-                                title="Avg Rating"
-                                value="4.8/5"
+                                title="Avg Mentor Rating"
+                                value={`${avgRating}/5`}
                                 icon={Star}
-                                trend="+0.2"
-                                trendUp={true}
-                                description="vs last month"
+                                description={`${mentorAnalytics.length} mentors`}
                             />
                         </div>
 
@@ -357,31 +271,16 @@ export default function AnalyticsPage() {
                                             Revenue Trend
                                         </CardTitle>
                                     </div>
-                                    <CardDescription>Monthly revenue for 2024</CardDescription>
+                                    <CardDescription>Monthly revenue overview</CardDescription>
                                 </CardHeader>
-                                <CardContent className="space-y-4 pt-4">
-                                    {mockRevenueData.map((item) => (
-                                        <div key={item.month} className="space-y-1">
-                                            <div className="flex items-center justify-between text-sm">
-                                                <span className="text-muted-foreground w-8 font-medium">
-                                                    {item.month}
-                                                </span>
-                                                <div className="flex-1 mx-3">
-                                                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                                                            style={{
-                                                                width: `${(item.revenue / maxRevenue) * 100}%`
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <span className="font-bold text-xs w-16 text-right">
-                                                    ₹{(item.revenue / 100000).toFixed(1)}L
-                                                </span>
-                                            </div>
+                                <CardContent className="pt-4">
+                                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                                        <div className="h-12 w-12 rounded-lg bg-muted/50 flex items-center justify-center mb-3">
+                                            <Info className="h-6 w-6 text-muted-foreground" />
                                         </div>
-                                    ))}
+                                        <p className="text-sm font-medium text-muted-foreground">Coming Soon</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Revenue tracking will be available once payment integration is connected.</p>
+                                    </div>
                                 </CardContent>
                             </Card>
                         </div>
@@ -394,9 +293,9 @@ export default function AnalyticsPage() {
                                         <Calendar className="h-6 w-6 text-emerald-600" />
                                     </div>
                                     <div>
-                                        <p className="text-3xl font-bold text-foreground">24</p>
+                                        <p className="text-3xl font-bold text-foreground">{studentFunnel.find(s => s.status === 'Invited')?.count ?? 0}</p>
                                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                            Upcoming Sessions
+                                            Pending Invitations
                                         </p>
                                     </div>
                                 </div>
@@ -407,9 +306,9 @@ export default function AnalyticsPage() {
                                         <Clock className="h-6 w-6 text-amber-600" />
                                     </div>
                                     <div>
-                                        <p className="text-3xl font-bold text-foreground">12</p>
+                                        <p className="text-3xl font-bold text-foreground">{studentFunnel.find(s => s.status === 'Flagged')?.count ?? 0}</p>
                                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                            Pending Submissions
+                                            Flagged Students
                                         </p>
                                     </div>
                                 </div>
@@ -420,9 +319,9 @@ export default function AnalyticsPage() {
                                         <Award className="h-6 w-6 text-blue-600" />
                                     </div>
                                     <div>
-                                        <p className="text-3xl font-bold text-foreground">8</p>
+                                        <p className="text-3xl font-bold text-foreground">{studentFunnel.find(s => s.status === 'Completed')?.count ?? 0}</p>
                                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                            Certificates to Issue
+                                            Completed Students
                                         </p>
                                     </div>
                                 </div>
@@ -432,7 +331,7 @@ export default function AnalyticsPage() {
                 )}
 
                 {/* Cohorts Tab */}
-                {activeTab === 'cohorts' && (
+                {activeTab === 'cohorts' && !isLoading && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <Card className="bg-white dark:bg-card border-border/50 overflow-hidden">
                             <CardHeader className="px-5 pt-5 pb-2">
@@ -474,10 +373,10 @@ export default function AnalyticsPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {mockCohortAnalytics.map((cohort, index) => (
+                                            {cohortAnalytics.map((cohort, index) => (
                                                 <tr
                                                     key={cohort.cohortId}
-                                                    className={`border-b border-border/40 hover:bg-muted/30 transition-colors ${index === mockCohortAnalytics.length - 1
+                                                    className={`border-b border-border/40 hover:bg-muted/30 transition-colors ${index === cohortAnalytics.length - 1
                                                             ? 'border-b-0'
                                                             : ''
                                                         }`}
@@ -546,7 +445,7 @@ export default function AnalyticsPage() {
                 )}
 
                 {/* Mentors Tab */}
-                {activeTab === 'mentors' && (
+                {activeTab === 'mentors' && !isLoading && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <Card className="bg-white dark:bg-card border-border/50 overflow-hidden">
                             <CardHeader className="px-5 pt-5 pb-2">
@@ -588,15 +487,15 @@ export default function AnalyticsPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {mockMentorAnalytics.map((mentor, index) => {
-                                                const completionRate = Math.round(
+                                            {mentorAnalytics.map((mentor, index) => {
+                                                const completionRate = mentor.totalSessions > 0 ? Math.round(
                                                     (mentor.completedSessions / mentor.totalSessions) *
                                                     100
-                                                );
+                                                ) : 0;
                                                 return (
                                                     <tr
                                                         key={mentor.mentorId}
-                                                        className={`border-b border-border/40 hover:bg-muted/30 transition-colors ${index === mockMentorAnalytics.length - 1
+                                                        className={`border-b border-border/40 hover:bg-muted/30 transition-colors ${index === mentorAnalytics.length - 1
                                                                 ? 'border-b-0'
                                                                 : ''
                                                             }`}
@@ -668,133 +567,19 @@ export default function AnalyticsPage() {
                 )}
 
                 {/* Revenue Tab */}
-                {activeTab === 'revenue' && (
+                {activeTab === 'revenue' && !isLoading && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        {/* Revenue Summary Cards */}
-                        <div className="grid gap-6 md:grid-cols-4">
-                            <Card className="p-5 bg-white dark:bg-card border-border/50">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        Total Revenue
-                                    </span>
-                                    <div className="h-8 w-8 rounded-md bg-emerald-100 flex items-center justify-center">
-                                        <IndianRupee className="h-4 w-4 text-emerald-600" />
-                                    </div>
-                                </div>
-                                <p className="text-2xl font-bold">
-                                    ₹{(totalRevenue / 100000).toFixed(1)}L
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">YTD 2024</p>
-                            </Card>
-
-                            <Card className="p-5 bg-white dark:bg-card border-border/50">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        Collected
-                                    </span>
-                                    <div className="h-8 w-8 rounded-md bg-emerald-100 flex items-center justify-center">
-                                        <CheckCircle className="h-4 w-4 text-emerald-600" />
-                                    </div>
-                                </div>
-                                <p className="text-2xl font-bold text-emerald-600">
-                                    ₹{(totalCollections / 100000).toFixed(1)}L
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    {Math.round((totalCollections / totalRevenue) * 100)}% of
-                                    total
-                                </p>
-                            </Card>
-
-                            <Card className="p-5 bg-white dark:bg-card border-border/50">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        Pending
-                                    </span>
-                                    <div className="h-8 w-8 rounded-md bg-amber-100 flex items-center justify-center">
-                                        <Clock className="h-4 w-4 text-amber-600" />
-                                    </div>
-                                </div>
-                                <p className="text-2xl font-bold text-amber-600">
-                                    ₹{(totalPending / 100000).toFixed(1)}L
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Awaiting payment
-                                </p>
-                            </Card>
-
-                            <Card className="p-5 bg-white dark:bg-card border-border/50">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        Overdue
-                                    </span>
-                                    <div className="h-8 w-8 rounded-md bg-red-100 flex items-center justify-center">
-                                        <AlertCircle className="h-4 w-4 text-red-600" />
-                                    </div>
-                                </div>
-                                <p className="text-2xl font-bold text-red-600">₹0.6L</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Requires follow-up
-                                </p>
-                            </Card>
-                        </div>
-
-                        {/* Monthly Revenue Breakdown */}
                         <Card className="bg-white dark:bg-card border-border/50">
-                            <CardHeader>
-                                <div className="flex items-center gap-2">
-                                    <BarChart3 className="h-5 w-5 text-muted-foreground" />
-                                    <div>
-                                        <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                                            Monthly Revenue
-                                        </CardTitle>
-                                        <CardDescription>
-                                            Revenue breakdown by month for 2024
-                                        </CardDescription>
+                            <CardContent className="py-16">
+                                <div className="flex flex-col items-center justify-center text-center">
+                                    <div className="h-16 w-16 rounded-xl bg-muted/50 flex items-center justify-center mb-4">
+                                        <IndianRupee className="h-8 w-8 text-muted-foreground" />
                                     </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {mockRevenueData.map((item) => (
-                                    <div key={item.month} className="space-y-2">
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="font-medium w-12">{item.month}</span>
-                                            <div className="flex-1 mx-4">
-                                                <div className="h-6 w-full bg-slate-100 dark:bg-slate-800 rounded overflow-hidden flex">
-                                                    <div
-                                                        className="h-full bg-emerald-500 transition-all duration-500"
-                                                        style={{
-                                                            width: `${(item.collections / maxRevenue) * 100}%`
-                                                        }}
-                                                        title={`Collected: ₹${(
-                                                            item.collections / 100000
-                                                        ).toFixed(1)}L`}
-                                                    />
-                                                    <div
-                                                        className="h-full bg-amber-400 transition-all duration-500"
-                                                        style={{
-                                                            width: `${(item.pending / maxRevenue) * 100}%`
-                                                        }}
-                                                        title={`Pending: ₹${(item.pending / 100000).toFixed(
-                                                            1
-                                                        )}L`}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <span className="font-semibold w-16 text-right">
-                                                ₹{(item.revenue / 100000).toFixed(1)}L
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
-                                <div className="flex items-center gap-4 pt-4 border-t border-border/50 text-xs text-muted-foreground">
-                                    <div className="flex items-center gap-1.5">
-                                        <div className="h-3 w-3 rounded bg-emerald-500" />
-                                        <span>Collected</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <div className="h-3 w-3 rounded bg-amber-400" />
-                                        <span>Pending</span>
-                                    </div>
+                                    <h3 className="text-lg font-semibold text-foreground mb-2">Revenue Analytics Coming Soon</h3>
+                                    <p className="text-sm text-muted-foreground max-w-md">
+                                        Revenue tracking, payment collection analytics, and financial reports will be available
+                                        once the payment integration is connected. Stay tuned!
+                                    </p>
                                 </div>
                             </CardContent>
                         </Card>

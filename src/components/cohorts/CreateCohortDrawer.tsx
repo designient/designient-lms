@@ -5,7 +5,7 @@ import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 import { DrawerSection, DrawerDivider } from '../ui/Drawer';
-import { Check, AlertCircle, DollarSign, Calendar } from 'lucide-react';
+import { Check, AlertCircle, Calendar, IndianRupee, DollarSign, PoundSterling, Euro } from 'lucide-react';
 
 // Types
 export interface CohortFormData {
@@ -45,6 +45,22 @@ const statusOptions = [
     { value: 'Active', label: 'Active' }
 ];
 
+const currencyOptions = [
+    { value: 'INR', label: 'INR (₹)' },
+    { value: 'USD', label: 'USD ($)' },
+    { value: 'EUR', label: 'EUR (€)' },
+    { value: 'GBP', label: 'GBP (£)' },
+];
+
+function CurrencyIcon({ currency, className }: { currency: string; className?: string }) {
+    switch (currency) {
+        case 'INR': return <IndianRupee className={className} />;
+        case 'EUR': return <Euro className={className} />;
+        case 'GBP': return <PoundSterling className={className} />;
+        default: return <DollarSign className={className} />;
+    }
+}
+
 const defaultMentorOptions: SelectOption[] = [];
 
 const defaultFormData: CohortFormData = {
@@ -57,7 +73,7 @@ const defaultFormData: CohortFormData = {
     mentors: [],
     capacity: 30,
     price: 2500,
-    currency: 'USD',
+    currency: 'INR',
     enrollmentDeadline: ''
 };
 
@@ -314,7 +330,7 @@ export function CreateCohortDrawer({
 
             {/* Capacity & Pricing */}
             <DrawerSection title="Capacity & Pricing">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
                     <div className="space-y-1.5">
                         <Label htmlFor="capacity" required>
                             Student Capacity
@@ -339,32 +355,46 @@ export function CreateCohortDrawer({
                         )}
                     </div>
 
-                    <div className="space-y-1.5">
-                        <Label htmlFor="price" required>
-                            Tuition Price ({formData.currency})
-                        </Label>
-                        <div className="relative">
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                <DollarSign className="h-3.5 w-3.5" />
-                            </div>
-                            <Input
-                                id="price"
-                                type="number"
-                                min={0}
-                                value={formData.price}
-                                onChange={(e) =>
-                                    handleChange('price', parseInt(e.target.value) || 0)
-                                }
-                                onBlur={() => handleBlur('price')}
-                                className={`pl-9 ${touched.price && errors.price
-                                        ? 'border-destructive focus:border-destructive'
-                                        : ''
-                                    }`}
+                    <div className="grid grid-cols-5 gap-3">
+                        <div className="col-span-2 space-y-1.5">
+                            <Label htmlFor="currency" required>
+                                Currency
+                            </Label>
+                            <Select
+                                id="currency"
+                                options={currencyOptions}
+                                value={formData.currency}
+                                onChange={(e) => handleChange('currency', e.target.value)}
                             />
                         </div>
-                        {touched.price && errors.price && (
-                            <p className="text-xs text-destructive">{errors.price}</p>
-                        )}
+
+                        <div className="col-span-3 space-y-1.5">
+                            <Label htmlFor="price" required>
+                                Tuition Price
+                            </Label>
+                            <div className="relative">
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                    <CurrencyIcon currency={formData.currency} className="h-3.5 w-3.5" />
+                                </div>
+                                <Input
+                                    id="price"
+                                    type="number"
+                                    min={0}
+                                    value={formData.price}
+                                    onChange={(e) =>
+                                        handleChange('price', parseInt(e.target.value) || 0)
+                                    }
+                                    onBlur={() => handleBlur('price')}
+                                    className={`pl-9 ${touched.price && errors.price
+                                            ? 'border-destructive focus:border-destructive'
+                                            : ''
+                                        }`}
+                                />
+                            </div>
+                            {touched.price && errors.price && (
+                                <p className="text-xs text-destructive">{errors.price}</p>
+                            )}
+                        </div>
                     </div>
                 </div>
             </DrawerSection>

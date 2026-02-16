@@ -25,6 +25,7 @@ import { useToast } from '@/components/ui/Toast';
 import { Plus, Loader2 } from 'lucide-react';
 import { PageName } from '@/types';
 import { apiClient } from '@/lib/api-client';
+import { CohortForAssignment } from '@/components/ui/AssignmentModal';
 
 interface ApiMentor {
     id: string;
@@ -82,31 +83,13 @@ function transformMentor(raw: ApiMentor): Mentor {
 
 type DrawerMode = 'view' | 'create' | 'edit';
 
-const specialtyToValue: Record<string, string> = {
-    'Design Systems': 'design-systems',
-    'Product Design': 'product-design',
-    'UX Strategy': 'ux-strategy',
-    'UI Design': 'ui-design',
-    'UX Research': 'ux-research',
-    'Interaction Design': 'interaction-design',
-    'Career Development': 'career-development'
-};
-
-const valueToSpecialty: Record<string, string> = {
-    'design-systems': 'Design Systems',
-    'product-design': 'Product Design',
-    'ux-strategy': 'UX Strategy',
-    'ui-design': 'UI Design',
-    'ux-research': 'UX Research',
-    'interaction-design': 'Interaction Design',
-    'career-development': 'Career Development'
-};
-
 export default function MentorsPage() {
     const router = useRouter();
     const { toast } = useToast();
     const [mentors, setMentors] = useState<Mentor[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [specialtyOptions, setSpecialtyOptions] = useState<{ value: string; label: string }[]>([]);
+    const [availableCohortsForDrawer, setAvailableCohortsForDrawer] = useState<CohortForAssignment[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<MentorStatus>('All');
     const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null);
@@ -121,8 +104,23 @@ export default function MentorsPage() {
     const fetchMentors = useCallback(async () => {
         try {
             setIsLoading(true);
-            const response = await apiClient.get<{ mentors: ApiMentor[] }>('/api/v1/mentors?limit=50');
-            setMentors(response.mentors.map(transformMentor));
+            const [mentorsRes, settingsRes, cohortsRes] = await Promise.all([
+                apiClient.get<{ mentors: ApiMentor[] }>('/api/v1/mentors?limit=50'),
+                apiClient.get<{ catalogSettings?: { mentorSpecialties?: { value: string; label: string }[] } }>('/api/v1/settings').catch(() => ({ catalogSettings: undefined })),
+                apiClient.get<{ cohorts: Array<{ id: string; name: string; status: string; mentors?: Array<{ id: string; user: { name: string } }> }> }>('/api/v1/cohorts?limit=50').catch(() => ({ cohorts: [] })),
+            ]);
+            setMentors(mentorsRes.mentors.map(transformMentor));
+            const specs = settingsRes.catalogSettings?.mentorSpecialties || [];
+            setSpecialtyOptions(specs);
+            const statusMap: Record<string, 'Active' | 'Upcoming' | 'Completed' | 'Archived'> = {
+                ACTIVE: 'Active', UPCOMING: 'Upcoming', COMPLETED: 'Completed', ARCHIVED: 'Archived',
+            };
+            setAvailableCohortsForDrawer(cohortsRes.cohorts.map(c => ({
+                id: c.id,
+                name: c.name,
+                status: statusMap[c.status] || 'Active',
+                currentMentors: c.mentors?.map(m => m.user.name) || [],
+            })));
         } catch (error) {
             console.error('Failed to fetch mentors:', error);
             toast({
@@ -263,12 +261,13 @@ export default function MentorsPage() {
         setIsSubmitting(true);
         try {
             if (drawerMode === 'create') {
+                const specLabels = data.specialty.map(v => specialtyOptions.find(s => s.value === v)?.label || v);
                 const payload = {
                     email: data.email,
                     name: data.name,
                     phone: data.phone || undefined,
                     whatsappOptIn: data.whatsappOptIn,
-                    specialization: valueToSpecialty[data.specialty] || data.specialty,
+                    specialization: specLabels.join(', '),
                     maxCohorts: data.maxCohorts,
                     bio: data.bio || undefined,
                     status: data.status === 'Active' ? 'ACTIVE' : 'INACTIVE',
@@ -282,8 +281,9 @@ export default function MentorsPage() {
                     variant: 'success'
                 });
             } else if (drawerMode === 'edit' && selectedMentor) {
+                const editSpecLabels = data.specialty.map(v => specialtyOptions.find(s => s.value === v)?.label || v);
                 const payload = {
-                    specialization: valueToSpecialty[data.specialty] || data.specialty,
+                    specialization: editSpecLabels.join(', '),
                     maxCohorts: data.maxCohorts,
                     bio: data.bio || undefined,
                     status: data.status === 'Active' ? 'ACTIVE' : 'INACTIVE',
@@ -296,7 +296,7 @@ export default function MentorsPage() {
                     phone: data.phone || undefined,
                     whatsappOptIn: data.whatsappOptIn,
                     status: data.status,
-                    specialty: valueToSpecialty[data.specialty] || data.specialty,
+                    specialty: editSpecLabels.join(', '),
                     maxCohorts: data.maxCohorts,
                     bio: data.bio || undefined
                 };
@@ -323,16 +323,25 @@ export default function MentorsPage() {
         }
     };
 
-    const mentorToFormData = (mentor: Mentor): Partial<MentorFormData> => ({
-        name: mentor.name,
-        email: mentor.email,
-        phone: mentor.phone || '',
-        whatsappOptIn: mentor.whatsappOptIn ?? true,
-        specialty: specialtyToValue[mentor.specialty] || '',
-        status: mentor.status,
-        maxCohorts: mentor.maxCohorts,
-        bio: mentor.bio || ''
-    });
+    const mentorToFormData = (mentor: Mentor): Partial<MentorFormData> => {
+        const labels = mentor.specialty
+            ? mentor.specialty.split(',').map(s => s.trim()).filter(Boolean)
+            : [];
+        const values = labels.map(label => {
+            const match = specialtyOptions.find(s => s.label === label);
+            return match?.value || label;
+        });
+        return {
+            name: mentor.name,
+            email: mentor.email,
+            phone: mentor.phone || '',
+            whatsappOptIn: mentor.whatsappOptIn ?? true,
+            specialty: values,
+            status: mentor.status,
+            maxCohorts: mentor.maxCohorts,
+            bio: mentor.bio || '',
+        };
+    };
 
     const getDrawerTitle = () => {
         switch (drawerMode) {
@@ -434,6 +443,7 @@ export default function MentorsPage() {
                             onEdit={handleEditMentor}
                             onDelete={handleDeleteMentor}
                             onSendMessage={handleSendMessage}
+                            availableCohorts={availableCohortsForDrawer}
                         />
                     )}
 
@@ -442,6 +452,7 @@ export default function MentorsPage() {
                             onSubmit={handleFormSubmit}
                             onCancel={handleCloseDrawer}
                             mode="create"
+                            specialtyOptions={specialtyOptions}
                         />
                     )}
 
@@ -451,6 +462,7 @@ export default function MentorsPage() {
                             onSubmit={handleFormSubmit}
                             onCancel={handleCloseDrawer}
                             mode="edit"
+                            specialtyOptions={specialtyOptions}
                         />
                     )}
                 </Drawer>
