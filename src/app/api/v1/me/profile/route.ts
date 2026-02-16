@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
 
-// GET /api/v1/me/profile — student profile with cohort details
+// GET /api/v1/me/profile — user profile with role-specific details
 export const GET = withAuth(async (_req, _ctx, user) => {
     try {
         const profile = await prisma.user.findUnique({
@@ -22,6 +22,7 @@ export const GET = withAuth(async (_req, _ctx, user) => {
                         },
                     },
                 },
+                mentorProfile: true,
             },
         });
 

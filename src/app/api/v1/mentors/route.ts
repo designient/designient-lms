@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
+import bcrypt from 'bcryptjs';
 import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
 import { mentorProfileSchema, formatZodErrors } from '@/lib/validations';
@@ -72,16 +73,6 @@ export const POST = withAuth(
     async (req: NextRequest, _ctx, user) => {
         try {
             const body = await req.json();
-            // Note: Body should include userId OR email/name to create a user
-            // For now, let's assume we are passing userId or creating a user is handled separately.
-            // But usually, we invite by email. 
-            // Let's support: input with { email, name, ...profile }
-
-            // For simplicity in this step, I'll assume we are creating a profile for an existing userId
-            // OR we will update the validation logic later to support full invite.
-            // Using mentorProfileSchema which is partial context.
-            // Let's use a dynamic check here.
-
             const { email, name, ...profileData } = body;
 
             let targetUserId = body.userId;
@@ -90,14 +81,20 @@ export const POST = withAuth(
                 // Check if user exists
                 let targetUser = await prisma.user.findUnique({ where: { email } });
                 if (!targetUser) {
-                    // Create user
+                    // Create user with a default password
+                    // In a real app, we'd send an invite email.
+                    // For now, we'll set a default password and log it.
+                    const tempPassword = 'mentor123';
+                    const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+                    console.log(`[MENTOR CREATED] Email: ${email}, Password: ${tempPassword}`);
+
                     targetUser = await prisma.user.create({
                         data: {
                             email,
                             name: name || email.split('@')[0],
-                            role: 'INSTRUCTOR', // Auto-assign role?
-                            // passwordHash... rely on invite flow or default
-                            passwordHash: 'pending_invite', // Placeholder
+                            role: 'INSTRUCTOR',
+                            passwordHash,
                         }
                     });
                 }
