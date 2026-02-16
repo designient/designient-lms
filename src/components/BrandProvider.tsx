@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 /**
  * Converts a hex color string (#RRGGBB) to HSL string "H S% L%"
@@ -40,8 +40,7 @@ function hexToHslString(hex: string): string | null {
 }
 
 /**
- * Generates a lighter foreground-safe HSL for primary-foreground.
- * If the color is dark enough, white works; otherwise use a dark foreground.
+ * Generates a foreground-safe HSL based on luminance contrast.
  */
 function getForegroundHsl(hex: string): string {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -49,19 +48,35 @@ function getForegroundHsl(hex: string): string {
     const r = parseInt(result[1], 16);
     const g = parseInt(result[2], 16);
     const b = parseInt(result[3], 16);
-    // Relative luminance
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
     return luminance > 0.5 ? '240 10% 12%' : '0 0% 100%';
 }
 
+interface BrandContextValue {
+    logoUrl: string | null;
+    orgName: string;
+}
+
+const BrandContext = createContext<BrandContextValue>({ logoUrl: null, orgName: '' });
+
+export function useBrand() {
+    return useContext(BrandContext);
+}
+
 export function BrandProvider({ children }: { children: React.ReactNode }) {
+    const [logoUrl, setLogoUrl] = useState<string | null>(null);
+    const [orgName, setOrgName] = useState('');
+
     useEffect(() => {
         async function applyBranding() {
             try {
                 const res = await fetch('/api/v1/settings');
                 if (!res.ok) return;
                 const json = await res.json();
-                const color = json.data?.primaryColor;
+                const data = json.data;
+
+                // Apply primary color as CSS variable
+                const color = data?.primaryColor;
                 if (color && typeof color === 'string') {
                     const hsl = hexToHslString(color);
                     if (hsl) {
@@ -70,13 +85,20 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
                         document.documentElement.style.setProperty('--primary-foreground', getForegroundHsl(color));
                     }
                 }
+
+                // Set logo and org name for sidebar
+                if (data?.logoUrl) setLogoUrl(data.logoUrl);
+                if (data?.orgName) setOrgName(data.orgName);
             } catch {
-                // Silently fall back to default CSS values
+                // Silently fall back to defaults
             }
         }
         applyBranding();
     }, []);
 
-    // Render children immediately -- branding is a progressive enhancement
-    return <>{children}</>;
+    return (
+        <BrandContext.Provider value={{ logoUrl, orgName }}>
+            {children}
+        </BrandContext.Provider>
+    );
 }

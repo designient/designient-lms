@@ -17,6 +17,7 @@ import {
     PanelLeft,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { useBrand } from '@/components/BrandProvider';
 import type { PageName } from '@/types';
 
 interface TooltipProps {
@@ -53,6 +54,7 @@ export function Sidebar({
     onBillingClick,
 }: SidebarProps) {
     const { toast } = useToast();
+    const { logoUrl, orgName: brandOrgName } = useBrand();
 
     const handleComingSoon = (feature: string) => {
         toast({
@@ -71,15 +73,29 @@ export function Sidebar({
                 className={`flex h-14 items-center border-b border-border/50 ${isCollapsed ? 'justify-center px-2' : 'px-4'}`}
             >
                 {isCollapsed ? (
-                    <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <span className="text-primary font-bold text-lg">D</span>
+                    <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
+                        {logoUrl ? (
+                            <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
+                        ) : (
+                            <span className="text-primary font-bold text-lg">
+                                {brandOrgName ? brandOrgName.charAt(0).toUpperCase() : 'D'}
+                            </span>
+                        )}
                     </div>
                 ) : (
                     <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <span className="text-primary font-bold text-lg">D</span>
+                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            {logoUrl ? (
+                                <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
+                            ) : (
+                                <span className="text-primary font-bold text-lg">
+                                    {brandOrgName ? brandOrgName.charAt(0).toUpperCase() : 'D'}
+                                </span>
+                            )}
                         </div>
-                        <span className="font-bold text-lg tracking-tight">Designient</span>
+                        <span className="font-bold text-lg tracking-tight truncate">
+                            {brandOrgName || 'Designient'}
+                        </span>
                     </div>
                 )}
             </div>

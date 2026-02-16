@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageName } from '@/types';
@@ -31,6 +31,7 @@ import {
     Database,
     Check,
     X,
+    Upload,
     Palette,
     Layout,
     Plus,
@@ -155,6 +156,9 @@ export default function SettingsPage({
 
     // Branding form state
     const [primaryColor, setPrimaryColor] = useState('#059669');
+    const [logoUrl, setLogoUrl] = useState<string | null>(null);
+    const [isLogoUploading, setIsLogoUploading] = useState(false);
+    const logoInputRef = useRef<HTMLInputElement>(null);
 
     // Billing form state
     const [billingCountry, setBillingCountry] = useState('IN');
@@ -192,6 +196,7 @@ export default function SettingsPage({
                     orgSlug?: string;
                     supportEmail?: string;
                     primaryColor?: string;
+                    logoUrl?: string | null;
                     billingSettings?: Record<string, string>;
                     securitySettings?: Record<string, boolean>;
                     catalogSettings?: {
@@ -207,6 +212,7 @@ export default function SettingsPage({
 
                 // Branding
                 if (settings.primaryColor) setPrimaryColor(settings.primaryColor);
+                if (settings.logoUrl) setLogoUrl(settings.logoUrl);
 
                 // Billing
                 if (settings.billingSettings) {
@@ -384,6 +390,61 @@ export default function SettingsPage({
             });
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/svg+xml'];
+        if (!allowedTypes.includes(file.type)) {
+            toast({ title: 'Invalid file', description: 'Please upload a PNG, JPG, WebP, or SVG file.', variant: 'error' });
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            toast({ title: 'File too large', description: 'Maximum file size is 2MB.', variant: 'error' });
+            return;
+        }
+
+        setIsLogoUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('logo', file);
+
+            const res = await fetch('/api/v1/settings/logo', { method: 'POST', body: formData });
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                throw new Error(err?.error?.message || 'Upload failed');
+            }
+            const json = await res.json();
+            const newUrl = json.data?.logoUrl;
+            if (newUrl) {
+                setLogoUrl(newUrl);
+                // Update the CSS variable for the sidebar logo
+                document.documentElement.style.setProperty('--brand-logo-url', `url(${newUrl})`);
+            }
+            toast({ title: 'Logo Uploaded', description: 'Your organization logo has been updated.', variant: 'success' });
+        } catch (err) {
+            toast({ title: 'Upload Failed', description: err instanceof Error ? err.message : 'Could not upload logo.', variant: 'error' });
+        } finally {
+            setIsLogoUploading(false);
+            if (logoInputRef.current) logoInputRef.current.value = '';
+        }
+    };
+
+    const handleLogoRemove = async () => {
+        setIsLogoUploading(true);
+        try {
+            const res = await fetch('/api/v1/settings/logo', { method: 'DELETE' });
+            if (!res.ok) throw new Error('Failed to remove logo');
+            setLogoUrl(null);
+            document.documentElement.style.removeProperty('--brand-logo-url');
+            toast({ title: 'Logo Removed', description: 'Organization logo has been removed.', variant: 'success' });
+        } catch {
+            toast({ title: 'Error', description: 'Could not remove logo.', variant: 'error' });
+        } finally {
+            setIsLogoUploading(false);
         }
     };
 
@@ -607,16 +668,58 @@ export default function SettingsPage({
                                             <div className="space-y-3">
                                                 <Label>Organization Logo</Label>
                                                 <div className="flex items-start gap-4">
-                                                    <div className="h-24 w-24 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
-                                                        <span className="text-2xl font-bold" style={{ color: primaryColor }}>
-                                                            {orgName ? orgName.charAt(0).toUpperCase() : 'D'}
-                                                        </span>
+                                                    <div className="h-24 w-24 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden relative">
+                                                        {isLogoUploading && (
+                                                            <div className="absolute inset-0 bg-background/70 flex items-center justify-center z-10">
+                                                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                                            </div>
+                                                        )}
+                                                        {logoUrl ? (
+                                                            <img
+                                                                src={logoUrl}
+                                                                alt="Organization logo"
+                                                                className="h-full w-full object-contain"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-2xl font-bold" style={{ color: primaryColor }}>
+                                                                {orgName ? orgName.charAt(0).toUpperCase() : 'D'}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="space-y-2">
+                                                        <input
+                                                            ref={logoInputRef}
+                                                            type="file"
+                                                            accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                                                            onChange={handleLogoUpload}
+                                                            className="hidden"
+                                                        />
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="gap-2"
+                                                                onClick={() => logoInputRef.current?.click()}
+                                                                disabled={isLogoUploading}
+                                                            >
+                                                                <Upload className="h-3.5 w-3.5" />
+                                                                {logoUrl ? 'Change Logo' : 'Upload Logo'}
+                                                            </Button>
+                                                            {logoUrl && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="text-destructive hover:text-destructive"
+                                                                    onClick={handleLogoRemove}
+                                                                    disabled={isLogoUploading}
+                                                                >
+                                                                    Remove
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                         <p className="text-xs text-muted-foreground">
-                                                            Logo upload coming soon. Currently using the first letter of your organization name.
+                                                            PNG, JPG, WebP, or SVG up to 2MB. Recommended: 128×128px.
                                                         </p>
-                                                        <Badge variant="outline" className="text-[10px]">Coming Soon</Badge>
                                                     </div>
                                                 </div>
                                             </div>
@@ -651,8 +754,14 @@ export default function SettingsPage({
                                                 <Label>Live Preview</Label>
                                                 <div className="rounded-lg border border-border/50 p-4 space-y-3 bg-muted/10">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: primaryColor + '1a' }}>
-                                                            <span className="text-xs font-bold" style={{ color: primaryColor }}>D</span>
+                                                        <div className="h-8 w-8 rounded-lg flex items-center justify-center overflow-hidden" style={{ backgroundColor: logoUrl ? 'transparent' : primaryColor + '1a' }}>
+                                                            {logoUrl ? (
+                                                                <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
+                                                            ) : (
+                                                                <span className="text-xs font-bold" style={{ color: primaryColor }}>
+                                                                    {orgName ? orgName.charAt(0).toUpperCase() : 'D'}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <span className="text-sm font-semibold">{orgName || 'Designient'}</span>
                                                     </div>
