@@ -279,6 +279,23 @@ async function main() {
         },
     });
 
+    // Subscription
+    await prisma.subscription.deleteMany();
+    await prisma.subscription.create({
+        data: {
+            plan: 'GROWTH',
+            status: 'ACTIVE',
+            billingCycle: 'MONTHLY',
+            price: 3999900,
+            currency: 'INR',
+            overageRate: 29900,
+            studentLimit: 250,
+            mentorLimit: 20,
+            cohortLimit: 25,
+            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+    });
+
     console.log('✅ Seeding complete!');
     console.log('');
     console.log('📧 Test accounts (password: Password1):');

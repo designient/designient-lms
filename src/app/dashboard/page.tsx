@@ -7,46 +7,41 @@ import { RateStatCard } from '@/components/dashboard/RateStatCard';
 import { EngagementChart } from '@/components/dashboard/EngagementChart';
 import { RecentActivityTable, type ActivityItem } from '@/components/dashboard/RecentActivityTable';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { Select } from '@/components/ui/Select';
-import { ArrowRight, Filter, Download, Trophy, Loader2 } from 'lucide-react';
+import { ArrowRight, Layers, Loader2 } from 'lucide-react';
 import type { PageName } from '@/types';
 import { apiClient } from '@/lib/api-client';
 
 interface DashboardSummary {
-    users: { total: number; students: number; instructors: number };
-    courses: { total: number; published: number };
-    enrollments: { total: number };
-    submissions: { pending: number; graded: number };
-    recentEnrollments: Array<{
-        id: string;
-        enrolledAt: string;
-        user: { name: string; email: string };
-        course: { title: string };
+    programs: { total: number; active: number };
+    cohorts: { total: number; active: number; upcoming: number };
+    students: {
+        total: number;
+        active: number;
+        invited: number;
+        flagged: number;
+        dropped: number;
+        completed: number;
+    };
+    mentors: { total: number; active: number };
+    topCohorts: Array<{
+        name: string;
+        programName: string;
+        studentCount: number;
+        capacity: number;
     }>;
-    enrollmentsByCourse: Array<{
+    recentStudents: Array<{
         id: string;
-        title: string;
-        _count: { enrollments: number };
+        name: string;
+        email: string;
+        cohortName: string;
+        enrollmentDate: string;
+        status: string;
     }>;
+    enrollmentTrend: Array<{ month: string; count: number }>;
 }
-
-// Fallback data for engagement chart (until a dedicated analytics API is built)
-const engagementData = [
-    { date: 'Jan', value: 65 },
-    { date: 'Feb', value: 78 },
-    { date: 'Mar', value: 82 },
-    { date: 'Apr', value: 75 },
-    { date: 'May', value: 90 },
-    { date: 'Jun', value: 88 },
-    { date: 'Jul', value: 95 },
-    { date: 'Aug', value: 92 },
-];
 
 export default function DashboardPage() {
     const router = useRouter();
-    const [period, setPeriod] = useState('30d');
     const [isLoading, setIsLoading] = useState(true);
     const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
@@ -70,32 +65,30 @@ export default function DashboardPage() {
         router.push(`/${page}`);
     };
 
-    const totalStudents = summary?.users.students ?? 0;
-    const totalInstructors = summary?.users.instructors ?? 0;
-    const totalCourses = summary?.courses.total ?? 0;
-    const publishedCourses = summary?.courses.published ?? 0;
-    const totalEnrollments = summary?.enrollments.total ?? 0;
-    const pendingSubmissions = summary?.submissions.pending ?? 0;
-    const gradedSubmissions = summary?.submissions.graded ?? 0;
-    const totalSubmissions = pendingSubmissions + gradedSubmissions;
-    const completionRate = totalSubmissions > 0
-        ? ((gradedSubmissions / totalSubmissions) * 100).toFixed(1)
+    // Derived values
+    const students = summary?.students ?? { total: 0, active: 0, invited: 0, flagged: 0, dropped: 0, completed: 0 };
+    const cohorts = summary?.cohorts ?? { total: 0, active: 0, upcoming: 0 };
+    const mentors = summary?.mentors ?? { total: 0, active: 0 };
+    const programs = summary?.programs ?? { total: 0, active: 0 };
+
+    const completionRate = students.total > 0
+        ? ((students.completed / students.total) * 100).toFixed(1)
         : '0';
 
-    const recentActivities: ActivityItem[] = (summary?.recentEnrollments || []).map((e, i) => ({
-        id: e.id || String(i),
-        action: `Enrolled in ${e.course?.title || 'a course'}`,
-        user: e.user?.name || 'Unknown',
-        type: 'Student',
-        date: e.enrolledAt ? new Date(e.enrolledAt).toLocaleDateString() : '',
-        status: 'Completed',
+    // Map enrollment trend to chart format
+    const chartData = (summary?.enrollmentTrend || []).map(t => ({
+        date: t.month,
+        value: t.count,
     }));
 
-    const leaderboardData = (summary?.enrollmentsByCourse || []).slice(0, 5).map(c => ({
-        name: c.title,
-        score: String(c._count.enrollments),
-        students: c._count.enrollments,
-        badge: null as string | null,
+    // Map recent students to activity items
+    const recentActivities: ActivityItem[] = (summary?.recentStudents || []).map(s => ({
+        id: s.id,
+        action: `Enrolled in ${s.cohortName}`,
+        user: s.name,
+        type: 'Student' as const,
+        date: new Date(s.enrollmentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        status: (s.status === 'ACTIVE' || s.status === 'COMPLETED' ? 'Completed' : s.status === 'INVITED' ? 'Pending' : 'Failed') as ActivityItem['status'],
     }));
 
     return (
@@ -106,33 +99,11 @@ export default function DashboardPage() {
             onNavigate={handleNavigate}
         >
             <div className="space-y-6 pb-8">
-                {/* Header with Period Selector */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-sm text-muted-foreground">
-                            Welcome back! Here&apos;s what&apos;s happening across your academy.
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Select
-                            options={[
-                                { value: '7d', label: 'Last 7 days' },
-                                { value: '30d', label: 'Last 30 days' },
-                                { value: '90d', label: 'Last 90 days' },
-                                { value: '1y', label: 'Last year' },
-                            ]}
-                            value={period}
-                            onChange={(e) => setPeriod(e.target.value)}
-                        />
-                        <Button variant="outline" size="sm">
-                            <Filter className="h-3.5 w-3.5" />
-                            Filters
-                        </Button>
-                        <Button variant="outline" size="sm">
-                            <Download className="h-3.5 w-3.5" />
-                            Export
-                        </Button>
-                    </div>
+                {/* Header */}
+                <div>
+                    <p className="text-sm text-muted-foreground">
+                        Welcome back! Here&apos;s what&apos;s happening across your academy.
+                    </p>
                 </div>
 
                 {/* Stats Grid */}
@@ -144,91 +115,101 @@ export default function DashboardPage() {
                     <>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                             <RateStatCard
+                                title="Active Students"
+                                rate={String(students.active)}
+                                trend={students.total > 0 ? `of ${students.total}` : ''}
+                                trendUp={students.active > 0}
+                                metric1Label="Total"
+                                metric1Value={String(students.total)}
+                                metric2Label="Flagged"
+                                metric2Value={String(students.flagged)}
+                                onClick={() => handleNavigate('students')}
+                            />
+                            <RateStatCard
+                                title="Active Cohorts"
+                                rate={String(cohorts.active)}
+                                trend={cohorts.upcoming > 0 ? `${cohorts.upcoming} upcoming` : ''}
+                                trendUp={cohorts.active > 0}
+                                metric1Label="Upcoming"
+                                metric1Value={String(cohorts.upcoming)}
+                                metric2Label="Programs"
+                                metric2Value={String(programs.total)}
+                                onClick={() => handleNavigate('cohorts')}
+                            />
+                            <RateStatCard
+                                title="Mentors"
+                                rate={String(mentors.active)}
+                                trend={mentors.total > 0 ? `of ${mentors.total}` : ''}
+                                trendUp={mentors.active > 0}
+                                metric1Label="Total"
+                                metric1Value={String(mentors.total)}
+                                metric2Label="Active"
+                                metric2Value={String(mentors.active)}
+                                onClick={() => handleNavigate('mentors')}
+                            />
+                            <RateStatCard
                                 title="Completion Rate"
                                 rate={`${completionRate}%`}
-                                trend={totalSubmissions > 0 ? '+' : ''}
-                                trendUp={Number(completionRate) > 50}
-                                metric1Label="Graded"
-                                metric1Value={String(gradedSubmissions)}
-                                metric2Label="Pending"
-                                metric2Value={String(pendingSubmissions)}
-                            />
-                            <RateStatCard
-                                title="Students"
-                                rate={String(totalStudents)}
-                                trend={totalStudents > 0 ? 'total' : ''}
-                                trendUp={totalStudents > 0}
-                                metric1Label="Enrollments"
-                                metric1Value={String(totalEnrollments)}
-                                metric2Label="Courses"
-                                metric2Value={String(totalCourses)}
-                            />
-                            <RateStatCard
-                                title="Mentors / Instructors"
-                                rate={String(totalInstructors)}
-                                trend="active"
-                                trendUp={totalInstructors > 0}
-                                metric1Label="Published Courses"
-                                metric1Value={String(publishedCourses)}
-                                metric2Label="Total Courses"
-                                metric2Value={String(totalCourses)}
-                            />
-                            <RateStatCard
-                                title="Submissions"
-                                rate={String(totalSubmissions)}
-                                trend={pendingSubmissions > 0 ? `${pendingSubmissions} pending` : 'all graded'}
-                                trendUp={pendingSubmissions === 0}
-                                metric1Label="Graded"
-                                metric1Value={String(gradedSubmissions)}
-                                metric2Label="Pending Review"
-                                metric2Value={String(pendingSubmissions)}
+                                trend={students.completed > 0 ? `${students.completed} completed` : ''}
+                                trendUp={Number(completionRate) > 0}
+                                metric1Label="Completed"
+                                metric1Value={String(students.completed)}
+                                metric2Label="Dropped"
+                                metric2Value={String(students.dropped)}
                             />
                         </div>
 
-                        {/* Chart & Top Courses */}
+                        {/* Chart & Top Cohorts */}
                         <div className="grid gap-6 lg:grid-cols-3 h-[400px]">
                             <div className="lg:col-span-2">
-                                <EngagementChart data={engagementData} title="Student Engagement Trends" />
+                                <EngagementChart
+                                    data={chartData.length > 0 ? chartData : [{ date: '-', value: 0 }]}
+                                    title="Student Enrollments (Last 6 Months)"
+                                />
                             </div>
                             <Card className="flex flex-col">
                                 <CardHeader className="flex flex-row items-center justify-between pb-3">
                                     <CardTitle className="flex items-center gap-2">
-                                        <Trophy className="h-4 w-4 text-yellow-500" />
-                                        Top Courses
+                                        <Layers className="h-4 w-4 text-primary" />
+                                        Top Cohorts
                                     </CardTitle>
                                     <button
                                         className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                                        onClick={() => handleNavigate('programs' as PageName)}
+                                        onClick={() => handleNavigate('cohorts')}
                                     >
                                         View All
                                         <ArrowRight className="h-3.5 w-3.5" />
                                     </button>
                                 </CardHeader>
                                 <CardContent className="flex-1 overflow-y-auto space-y-3">
-                                    {leaderboardData.length === 0 ? (
+                                    {(summary?.topCohorts || []).length === 0 ? (
                                         <p className="text-sm text-muted-foreground text-center py-8">
-                                            No course data yet.
+                                            No cohort data yet.
                                         </p>
                                     ) : (
-                                        leaderboardData.map((course, index) => (
+                                        (summary?.topCohorts || []).map((cohort, index) => (
                                             <div
-                                                key={course.name + index}
+                                                key={cohort.name + index}
                                                 className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40 transition-colors cursor-pointer"
+                                                onClick={() => handleNavigate('cohorts')}
                                             >
                                                 <div className="flex items-center justify-center h-7 w-7 rounded-full bg-muted text-xs font-bold text-muted-foreground">
                                                     {index + 1}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-medium text-foreground truncate">
-                                                        {course.name}
+                                                        {cohort.name}
                                                     </p>
                                                     <p className="text-[10px] text-muted-foreground">
-                                                        {course.students} enrollments
+                                                        {cohort.programName}
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-sm font-semibold text-foreground">
-                                                        {course.score}
+                                                        {cohort.studentCount}
+                                                    </p>
+                                                    <p className="text-[10px] text-muted-foreground">
+                                                        / {cohort.capacity}
                                                     </p>
                                                 </div>
                                             </div>
@@ -245,7 +226,7 @@ export default function DashboardPage() {
                             <Card>
                                 <CardContent className="py-8">
                                     <p className="text-sm text-muted-foreground text-center">
-                                        No recent activity yet. Enrollments will appear here.
+                                        No recent activity yet. Student enrollments will appear here.
                                     </p>
                                 </CardContent>
                             </Card>

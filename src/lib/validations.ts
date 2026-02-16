@@ -28,6 +28,16 @@ export const resetPasswordSchema = z.object({
         .max(128),
 });
 
+export const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z
+        .string()
+        .min(8, 'New password must be at least 8 characters')
+        .max(128)
+        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+        .regex(/[0-9]/, 'Password must contain at least one number'),
+});
+
 export const updateProfileSchema = z.object({
     name: z.string().min(2).max(100).optional(),
     avatarUrl: z.string().url().optional().nullable(),
@@ -142,6 +152,13 @@ export const settingsSchema = z.object({
     billingSettings: z.record(z.string(), z.any()).optional(),
     securitySettings: z.record(z.string(), z.any()).optional(),
     catalogSettings: z.record(z.string(), z.any()).optional(),
+});
+
+// Subscription Schemas
+export const subscriptionUpdateSchema = z.object({
+    plan: z.enum(['FREE', 'STARTER', 'GROWTH', 'ENTERPRISE']).optional(),
+    billingCycle: z.enum(['MONTHLY', 'YEARLY']).optional(),
+    currency: z.string().min(2).max(5).optional(),
 });
 
 // Helper to extract Zod errors into a friendly format

@@ -34,6 +34,9 @@ export async function GET(req: NextRequest) {
                 where,
                 include: {
                     program: { select: { id: true, name: true, slug: true } },
+                    mentors: {
+                        include: { user: { select: { id: true, name: true } } }
+                    },
                     _count: { select: { students: true, mentors: true } }
                 },
                 orderBy: { startDate: 'asc' },

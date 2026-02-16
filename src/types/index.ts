@@ -147,18 +147,26 @@ export interface RolePermission {
 }
 
 export interface Subscription {
-    plan: 'trial' | 'starter' | 'growth' | 'enterprise';
-    status: 'active' | 'past_due' | 'cancelled' | 'trialing';
-    currentPeriodEnd: string;
-    studentCount: number;
-    studentLimit: number;
-    mentorCount: number;
-    mentorLimit: number;
-    cohortCount: number;
-    cohortLimit: number;
+    plan: 'FREE' | 'STARTER' | 'GROWTH' | 'ENTERPRISE';
+    status: 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
+    billingCycle: 'MONTHLY' | 'YEARLY';
     price: number;
     currency: string;
-    billingCycle: 'monthly' | 'yearly';
+    overageRate: number;
+    studentLimit: number;
+    mentorLimit: number;
+    cohortLimit: number;
+    currentPeriodStart: string;
+    currentPeriodEnd: string;
+    usage: {
+        students: number;
+        mentors: number;
+        cohorts: number;
+    };
+    overage: {
+        count: number;
+        monthlyCost: number;
+    };
 }
 
 export interface AnalyticsMetric {

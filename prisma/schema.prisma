@@ -85,6 +85,25 @@ enum RecipientType {
   CUSTOM
 }
 
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  GROWTH
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -403,4 +422,23 @@ model Settings {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("settings")
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  plan               SubscriptionPlan   @default(GROWTH)
+  status             SubscriptionStatus @default(ACTIVE)
+  billingCycle       BillingCycle       @default(MONTHLY) @map("billing_cycle")
+  price              Int                @default(3999900)
+  currency           String             @default("INR")
+  overageRate        Int                @default(29900) @map("overage_rate")
+  studentLimit       Int                @default(250) @map("student_limit")
+  mentorLimit        Int                @default(20)  @map("mentor_limit")
+  cohortLimit        Int                @default(25)  @map("cohort_limit")
+  currentPeriodStart DateTime           @default(now()) @map("current_period_start")
+  currentPeriodEnd   DateTime           @map("current_period_end")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
 }

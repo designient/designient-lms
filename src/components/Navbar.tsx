@@ -37,9 +37,9 @@ export default function Navbar() {
 
                 {isAuth && role === 'STUDENT' && (
                     <>
-                        <li><Link href="/courses" className={isActive('/courses')}>Catalog</Link></li>
-                        <li><Link href="/my-courses" className={isActive('/my-courses')}>My Courses</Link></li>
-                        <li><Link href="/grades" className={isActive('/grades')}>Grades</Link></li>
+                        <li><Link href="/s/catalog" className={isActive('/s/catalog')}>Catalog</Link></li>
+                        <li><Link href="/s/courses" className={isActive('/s/courses')}>My Courses</Link></li>
+                        <li><Link href="/s/grades" className={isActive('/s/grades')}>Grades</Link></li>
                     </>
                 )}
 

@@ -48,6 +48,7 @@ import {
     AuditLogEntry,
 } from '@/types';
 import { apiClient } from '@/lib/api-client';
+import { PLAN_CATALOG, formatPrice, type CurrencyKey } from '@/lib/plan-catalog';
 
 export type SettingsTab =
     | 'organization'
@@ -170,11 +171,11 @@ export default function SettingsPage({
     const [smsEnabled, setSmsEnabled] = useState(false);
     const [pushEnabled, setPushEnabled] = useState(true);
 
-    // Subscription real counts
-    const [realStudentCount, setRealStudentCount] = useState(0);
-    const [realMentorCount, setRealMentorCount] = useState(0);
-    const [realCohortCount, setRealCohortCount] = useState(0);
+    // Subscription state
+    const [subscription, setSubscription] = useState<import('@/types').Subscription | null>(null);
     const [isSubLoading, setIsSubLoading] = useState(false);
+    const [subBillingToggle, setSubBillingToggle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
+    const [isSubSaving, setIsSubSaving] = useState(false);
 
     // Settings loading state
     const [isSettingsLoading, setIsSettingsLoading] = useState(true);
@@ -262,23 +263,21 @@ export default function SettingsPage({
         }
     }, [activeTab, auditLogs.length]);
 
-    // Fetch real subscription counts when subscription tab is active
+    // Fetch subscription when subscription tab is active
     useEffect(() => {
-        if (activeTab === 'subscription' && !isSubLoading && realStudentCount === 0) {
+        if (activeTab === 'subscription' && !subscription && !isSubLoading) {
             setIsSubLoading(true);
-            Promise.all([
-                apiClient.get<{ pagination: { total: number } }>('/api/v1/students?limit=1'),
-                apiClient.get<{ pagination: { total: number } }>('/api/v1/mentors?limit=1'),
-                apiClient.get<{ pagination: { total: number } }>('/api/v1/cohorts?limit=1'),
-            ]).then(([students, mentors, cohorts]) => {
-                setRealStudentCount(students.pagination?.total || 0);
-                setRealMentorCount(mentors.pagination?.total || 0);
-                setRealCohortCount(cohorts.pagination?.total || 0);
-            }).catch(() => {
-                // Ignore -- counts stay 0
-            }).finally(() => setIsSubLoading(false));
+            apiClient.get<import('@/types').Subscription>('/api/v1/subscription')
+                .then(data => {
+                    setSubscription(data);
+                    setSubBillingToggle(data.billingCycle);
+                })
+                .catch(() => {
+                    // Subscription may not exist yet
+                })
+                .finally(() => setIsSubLoading(false));
         }
-    }, [activeTab, isSubLoading, realStudentCount]);
+    }, [activeTab, subscription, isSubLoading]);
 
     const handleAddSpecialty = () => {
         const label = newSpecialtyLabel.trim();
@@ -822,83 +821,298 @@ export default function SettingsPage({
                     {/* Subscription Tab */}
                     {activeTab === 'subscription' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <Card className="bg-white dark:bg-card border-border/50">
-                                <CardHeader>
-                                    <div className="flex items-center gap-2">
-                                        <Layout className="h-5 w-5 text-muted-foreground" />
-                                        <div>
-                                            <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                                                Current Plan
-                                            </CardTitle>
-                                            <CardDescription>
-                                                Manage your subscription and usage.
-                                            </CardDescription>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="space-y-6 pt-4">
-                                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
-                                        <div className="flex items-center justify-between mb-2">
+                            {isSubLoading ? (
+                                <div className="flex justify-center py-12">
+                                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : subscription ? (
+                                <>
+                                    {/* Current Plan Card */}
+                                    <Card className="bg-white dark:bg-card border-border/50">
+                                        <CardHeader>
                                             <div className="flex items-center gap-2">
-                                                <h3 className="text-base font-semibold tracking-tight text-emerald-700">
-                                                    GROWTH PLAN
-                                                </h3>
-                                                <Badge variant="success" className="text-[10px]">
-                                                    Active
-                                                </Badge>
+                                                <Layout className="h-5 w-5 text-muted-foreground" />
+                                                <div>
+                                                    <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                                                        Current Plan
+                                                    </CardTitle>
+                                                    <CardDescription>
+                                                        Manage your subscription and usage.
+                                                    </CardDescription>
+                                                </div>
                                             </div>
-                                            <span className="font-semibold text-foreground">
-                                                ₹24,999/month
-                                            </span>
-                                        </div>
-                                        <div className="h-px bg-emerald-200 w-full my-3"></div>
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-muted-foreground">
-                                                Plan management coming soon
-                                            </span>
-                                        </div>
-                                    </div>
+                                        </CardHeader>
+                                        <CardContent className="space-y-6 pt-4">
+                                            {(() => {
+                                                const tier = PLAN_CATALOG.find(t => t.plan === subscription.plan);
+                                                const currency = subscription.currency as CurrencyKey;
+                                                const statusColors: Record<string, string> = {
+                                                    ACTIVE: 'border-emerald-500/40 bg-emerald-500/10 dark:border-emerald-400/30 dark:bg-emerald-400/10',
+                                                    TRIALING: 'border-blue-500/40 bg-blue-500/10 dark:border-blue-400/30 dark:bg-blue-400/10',
+                                                    PAST_DUE: 'border-amber-500/40 bg-amber-500/10 dark:border-amber-400/30 dark:bg-amber-400/10',
+                                                    CANCELLED: 'border-red-500/40 bg-red-500/10 dark:border-red-400/30 dark:bg-red-400/10',
+                                                };
+                                                const statusBadgeVariants: Record<string, 'success' | 'warning' | 'destructive' | 'default'> = {
+                                                    ACTIVE: 'success',
+                                                    TRIALING: 'default',
+                                                    PAST_DUE: 'warning',
+                                                    CANCELLED: 'destructive',
+                                                };
+                                                const daysRemaining = Math.max(0, Math.ceil((new Date(subscription.currentPeriodEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
 
-                                    <div className="space-y-4">
-                                        <h4 className="text-sm font-medium">Current Usage</h4>
-                                        {isSubLoading ? (
-                                            <div className="flex justify-center py-4">
-                                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                                return (
+                                                    <>
+                                                        <div className={`rounded-lg border-2 p-4 ${statusColors[subscription.status] || 'border-border'}`}>
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <h3 className="text-base font-semibold tracking-tight text-emerald-700 dark:text-emerald-400">
+                                                                        {subscription.plan} PLAN
+                                                                    </h3>
+                                                                    <Badge variant={statusBadgeVariants[subscription.status] || 'default'} className="text-[10px]">
+                                                                        {subscription.status}
+                                                                    </Badge>
+                                                                </div>
+                                                                <span className="font-semibold text-foreground">
+                                                                    {formatPrice(subscription.price, currency)}/{subscription.billingCycle === 'YEARLY' ? 'year' : 'month'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="h-px bg-emerald-500/20 dark:bg-emerald-400/20 w-full my-3"></div>
+                                                            <div className="flex items-center justify-between text-sm">
+                                                                <span className="text-muted-foreground">
+                                                                    {tier?.stage || subscription.plan}
+                                                                </span>
+                                                                <span className="text-muted-foreground">
+                                                                    {daysRemaining > 0
+                                                                        ? `${daysRemaining} days until renewal`
+                                                                        : 'Renewal due'
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Usage Meters */}
+                                                        <div className="space-y-4">
+                                                            <h4 className="text-sm font-medium">Current Usage</h4>
+                                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                                {[
+                                                                    { label: 'Students', used: subscription.usage.students, limit: subscription.studentLimit },
+                                                                    { label: 'Mentors', used: subscription.usage.mentors, limit: subscription.mentorLimit },
+                                                                    { label: 'Active Cohorts', used: subscription.usage.cohorts, limit: subscription.cohortLimit },
+                                                                ].map(meter => {
+                                                                    const pct = meter.limit > 0 ? (meter.used / meter.limit) * 100 : 0;
+                                                                    const barColor = pct > 90 ? 'bg-red-500' : pct > 75 ? 'bg-amber-500' : 'bg-emerald-500';
+                                                                    return (
+                                                                        <div key={meter.label} className="space-y-2">
+                                                                            <div className="flex justify-between text-xs">
+                                                                                <span className="text-muted-foreground">{meter.label}</span>
+                                                                                <span className="font-medium">{meter.used} / {meter.limit}</span>
+                                                                            </div>
+                                                                            <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                                <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${Math.min(pct, 100)}%` }}></div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Overage Banner */}
+                                                        {subscription.overage.count > 0 && (
+                                                            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 flex items-center gap-2 text-sm">
+                                                                <Activity className="h-4 w-4 text-amber-600 shrink-0" />
+                                                                <span className="text-amber-800">
+                                                                    <strong>{subscription.overage.count} students</strong> over your plan limit.
+                                                                    Estimated overage: <strong>{formatPrice(subscription.overage.monthlyCost, currency)}/month</strong>
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Plan Comparison Grid */}
+                                    <Card className="bg-white dark:bg-card border-border/50">
+                                        <CardHeader>
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                                                        Plans
+                                                    </CardTitle>
+                                                    <CardDescription>
+                                                        Choose the right stage for your academy.
+                                                    </CardDescription>
+                                                </div>
+                                                <div className="flex items-center gap-2 rounded-lg border p-1">
+                                                    <button
+                                                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${subBillingToggle === 'MONTHLY' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                                        onClick={() => setSubBillingToggle('MONTHLY')}
+                                                    >
+                                                        Monthly
+                                                    </button>
+                                                    <button
+                                                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors flex items-center gap-1 ${subBillingToggle === 'YEARLY' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                                        onClick={() => setSubBillingToggle('YEARLY')}
+                                                    >
+                                                        Yearly
+                                                        <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold">2 months free</span>
+                                                    </button>
+                                                </div>
                                             </div>
-                                        ) : (
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-muted-foreground">Students</span>
-                                                        <span className="font-medium">{realStudentCount} / 500</span>
+                                        </CardHeader>
+                                        <CardContent>
+                                            {(() => {
+                                                const currency = (subscription.currency || 'INR') as CurrencyKey;
+
+                                                const handlePlanChange = async (newPlan: string) => {
+                                                    if (newPlan === subscription.plan) return;
+                                                    setIsSubSaving(true);
+                                                    try {
+                                                        await apiClient.put('/api/v1/subscription', {
+                                                            plan: newPlan,
+                                                            billingCycle: subBillingToggle,
+                                                            currency: subscription.currency,
+                                                        });
+                                                        const updated = await apiClient.get<import('@/types').Subscription>('/api/v1/subscription');
+                                                        setSubscription(updated);
+                                                        toast({ title: 'Plan Updated', description: `Switched to ${newPlan} plan.`, variant: 'success' });
+                                                    } catch {
+                                                        toast({ title: 'Error', description: 'Failed to update plan.', variant: 'error' });
+                                                    } finally {
+                                                        setIsSubSaving(false);
+                                                    }
+                                                };
+
+                                                return (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                        {PLAN_CATALOG.map((tier) => {
+                                                            const isCurrent = tier.plan === subscription.plan;
+                                                            const price = subBillingToggle === 'YEARLY' ? tier.yearlyPrice[currency] : tier.monthlyPrice[currency];
+                                                            const isEnterprise = tier.plan === 'ENTERPRISE';
+                                                            const isFree = tier.plan === 'FREE';
+                                                            const isHigher = PLAN_CATALOG.findIndex(t => t.plan === tier.plan) > PLAN_CATALOG.findIndex(t => t.plan === subscription.plan);
+
+                                                            return (
+                                                                <div
+                                                                    key={tier.plan}
+                                                                    className={`relative rounded-xl border-2 p-5 flex flex-col transition-all ${
+                                                                        isCurrent
+                                                                            ? 'border-primary bg-primary/5 shadow-sm'
+                                                                            : isFree
+                                                                                ? 'border-border/50 bg-muted/30'
+                                                                                : 'border-border hover:border-primary/30'
+                                                                    }`}
+                                                                >
+                                                                    {/* Badges */}
+                                                                    <div className="flex items-center gap-1.5 mb-3">
+                                                                        {isCurrent && (
+                                                                            <Badge variant="default" className="text-[10px]">Current Plan</Badge>
+                                                                        )}
+                                                                        {tier.recommended && !isCurrent && (
+                                                                            <Badge variant="success" className="text-[10px]">Recommended</Badge>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {/* Stage */}
+                                                                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                                                                        {tier.stage}
+                                                                    </p>
+
+                                                                    {/* Plan Name */}
+                                                                    <h3 className="text-lg font-bold text-foreground mb-2">
+                                                                        {tier.label}
+                                                                    </h3>
+
+                                                                    {/* Price */}
+                                                                    <div className="mb-4">
+                                                                        {isFree ? (
+                                                                            <p className="text-2xl font-bold text-foreground">Free</p>
+                                                                        ) : isEnterprise && subBillingToggle === 'YEARLY' ? (
+                                                                            <p className="text-sm font-medium text-muted-foreground">Contact Sales</p>
+                                                                        ) : (
+                                                                            <p className="text-2xl font-bold text-foreground">
+                                                                                {formatPrice(price, currency)}
+                                                                                <span className="text-sm font-normal text-muted-foreground">
+                                                                                    /{subBillingToggle === 'YEARLY' ? 'year' : 'month'}
+                                                                                </span>
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {/* Limits */}
+                                                                    <div className="space-y-1 mb-4 text-xs text-muted-foreground">
+                                                                        <p>{tier.studentLimit >= 600 ? '600+' : tier.studentLimit} active students</p>
+                                                                        <p>{tier.mentorLimit} mentors</p>
+                                                                        <p>{tier.cohortLimit} cohorts</p>
+                                                                    </div>
+
+                                                                    {/* Features */}
+                                                                    <div className="flex-1 space-y-1.5 mb-4">
+                                                                        {tier.features.slice(0, 4).map((f) => (
+                                                                            <div key={f} className="flex items-start gap-1.5 text-xs">
+                                                                                <Check className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />
+                                                                                <span className="text-muted-foreground">{f}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                        {tier.features.length > 4 && (
+                                                                            <p className="text-[10px] text-muted-foreground pl-4">+{tier.features.length - 4} more</p>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {/* Action Button */}
+                                                                    {isCurrent ? (
+                                                                        <Button variant="outline" size="sm" disabled className="w-full mt-auto">
+                                                                            Current Plan
+                                                                        </Button>
+                                                                    ) : isEnterprise ? (
+                                                                        <Button variant="outline" size="sm" className="w-full mt-auto">
+                                                                            Contact Sales
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <Button
+                                                                            variant={isHigher ? 'primary' : 'outline'}
+                                                                            size="sm"
+                                                                            className="w-full mt-auto"
+                                                                            onClick={() => handlePlanChange(tier.plan)}
+                                                                            disabled={isSubSaving}
+                                                                        >
+                                                                            {isSubSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                                                                            {isHigher ? 'Upgrade' : 'Downgrade'}
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
-                                                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min((realStudentCount / 500) * 100, 100)}%` }}></div>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-muted-foreground">Mentors</span>
-                                                        <span className="font-medium">{realMentorCount} / 20</span>
-                                                    </div>
-                                                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min((realMentorCount / 20) * 100, 100)}%` }}></div>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-muted-foreground">Active Cohorts</span>
-                                                        <span className="font-medium">{realCohortCount} / 25</span>
-                                                    </div>
-                                                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min((realCohortCount / 25) * 100, 100)}%` }}></div>
-                                                    </div>
-                                                </div>
+                                                );
+                                            })()}
+                                        </CardContent>
+                                        <CardFooter className="border-t pt-4">
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                <Activity className="h-3.5 w-3.5" />
+                                                <span>
+                                                    Beyond your plan limit: overage of{' '}
+                                                    {(() => {
+                                                        const currency = (subscription.currency || 'INR') as CurrencyKey;
+                                                        const tier = PLAN_CATALOG.find(t => t.plan === subscription.plan);
+                                                        return tier ? formatPrice(tier.overageRate[currency], currency) : '₹299';
+                                                    })()}{' '}
+                                                    per additional active student/month. Scale smoothly without a forced upgrade.
+                                                </span>
                                             </div>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                        </CardFooter>
+                                    </Card>
+                                </>
+                            ) : (
+                                <Card>
+                                    <CardContent className="py-8">
+                                        <p className="text-sm text-muted-foreground text-center">
+                                            Unable to load subscription data. Please try again.
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            )}
                         </div>
                     )}
 
