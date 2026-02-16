@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageName, Student, StudentNote } from '@/types';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { Drawer } from '@/components/ui/Drawer';
-import { Plus, Download, X } from 'lucide-react';
+import { Plus, Download, X, Loader2 } from 'lucide-react';
 
 import {
     StudentFilters,
@@ -21,167 +21,65 @@ import {
     StudentFormData,
     StudentFormFooter,
 } from '@/components/students/StudentForm';
+import { apiClient } from '@/lib/api-client';
 
-// Mock Data
-const initialStudents: Student[] = [
-    {
-        id: 'S-1001',
-        name: 'Emma Thompson',
-        email: 'emma.t@example.com',
-        phone: '9876543210',
-        cohortId: 'C-2024-001',
-        cohortName: 'Spring 2024 Design Systems',
-        status: 'Active',
-        mentor: 'Sarah Chen',
-        mentorId: 'M-001',
-        lastActivity: '2 hours ago',
-        enrollmentDate: 'Feb 28, 2024',
-        progress: 75,
-        sessionsAttended: 9,
-        totalSessions: 12,
-        paymentStatus: 'Paid',
-        notes: [
-            {
-                id: 'N-001',
-                authorId: 'M-001',
-                authorName: 'Sarah Chen',
-                authorRole: 'Mentor',
-                content: 'Emma is making excellent progress. Very engaged in sessions.',
-                createdAt: 'Mar 10, 2024',
-            },
-        ],
-    },
-    {
-        id: 'S-1002',
-        name: 'James Wilson',
-        email: 'j.wilson@design.co',
-        cohortId: 'C-2024-002',
-        cohortName: 'Winter 2024 Product Strategy',
-        status: 'Flagged',
-        mentor: 'Mike Ross',
-        mentorId: 'M-002',
-        lastActivity: '5 days ago',
-        enrollmentDate: 'Jan 15, 2024',
-        progress: 45,
-        sessionsAttended: 5,
-        totalSessions: 12,
-        paymentStatus: 'Paid',
-        notes: [
-            {
-                id: 'N-002',
-                authorId: 'M-002',
-                authorName: 'Mike Ross',
-                authorRole: 'Mentor',
-                content: 'Missed 3 consecutive mentor sessions. Needs follow-up.',
-                createdAt: 'Mar 8, 2024',
-            },
-        ],
-        flagReason: 'Missed 3 consecutive mentor sessions',
-    },
-    {
-        id: 'S-1003',
-        name: 'Sofia Rodriguez',
-        email: 'sofia.r@studio.net',
-        cohortId: 'C-2024-003',
-        cohortName: 'Spring 2024 Foundations',
-        status: 'Invited',
+interface ApiStudent {
+    id: string;
+    userId: string;
+    name: string;
+    email: string;
+    avatarUrl?: string;
+    phone?: string;
+    status: string;
+    cohortId: string | null;
+    cohortName?: string;
+    enrollmentDate?: string;
+    whatsappOptIn?: boolean;
+}
+
+function transformStudent(raw: ApiStudent): Student {
+    const formatDate = (d: string | null | undefined) => {
+        if (!d) return '';
+        return new Date(d).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    };
+
+    const statusMap: Record<string, Student['status']> = {
+        'INVITED': 'Invited',
+        'ACTIVE': 'Active',
+        'FLAGGED': 'Flagged',
+        'DROPPED': 'Dropped',
+        'COMPLETED': 'Completed',
+        'Invited': 'Invited',
+        'Active': 'Active',
+        'Flagged': 'Flagged',
+        'Dropped': 'Dropped',
+        'Completed': 'Completed',
+    };
+
+    return {
+        id: raw.id,
+        name: raw.name || '',
+        email: raw.email || '',
+        phone: raw.phone || undefined,
+        whatsappOptIn: raw.whatsappOptIn,
+        cohortId: raw.cohortId || '',
+        cohortName: raw.cohortName || '',
+        status: statusMap[raw.status] || 'Invited',
         mentor: null,
         mentorId: null,
-        lastActivity: 'Never',
-        enrollmentDate: 'Mar 10, 2024',
+        lastActivity: '',
+        enrollmentDate: formatDate(raw.enrollmentDate),
         progress: 0,
         sessionsAttended: 0,
-        totalSessions: 12,
+        totalSessions: 0,
         paymentStatus: 'Pending',
         notes: [],
-    },
-    {
-        id: 'S-1004',
-        name: 'Michael Chang',
-        email: 'm.chang@tech.io',
-        cohortId: 'C-2024-002',
-        cohortName: 'Winter 2024 Product Strategy',
-        status: 'Completed',
-        mentor: 'Alex Kim',
-        mentorId: 'M-003',
-        lastActivity: '1 week ago',
-        enrollmentDate: 'Nov 10, 2023',
-        progress: 100,
-        sessionsAttended: 12,
-        totalSessions: 12,
-        paymentStatus: 'Paid',
-        notes: [
-            {
-                id: 'N-003',
-                authorId: 'A-001',
-                authorName: 'Admin',
-                authorRole: 'Admin',
-                content: 'Successfully completed the program with distinction.',
-                createdAt: 'Feb 15, 2024',
-            },
-        ],
-    },
-    {
-        id: 'S-1005',
-        name: 'Olivia Parker',
-        email: 'olivia.p@creative.com',
-        cohortId: 'C-2024-001',
-        cohortName: 'Spring 2024 Design Systems',
-        status: 'Active',
-        mentor: 'Sarah Chen',
-        mentorId: 'M-001',
-        lastActivity: 'Just now',
-        enrollmentDate: 'Mar 1, 2024',
-        progress: 82,
-        sessionsAttended: 10,
-        totalSessions: 12,
-        paymentStatus: 'Paid',
-        notes: [],
-    },
-    {
-        id: 'S-1006',
-        name: 'Lucas Silva',
-        email: 'lucas.s@freelance.br',
-        cohortId: 'C-2024-003',
-        cohortName: 'Spring 2024 Foundations',
-        status: 'Dropped',
-        mentor: 'Jessica Lee',
-        mentorId: 'M-004',
-        lastActivity: '3 weeks ago',
-        enrollmentDate: 'Feb 10, 2024',
-        progress: 25,
-        sessionsAttended: 3,
-        totalSessions: 12,
-        paymentStatus: 'Refunded',
-        notes: [
-            {
-                id: 'N-004',
-                authorId: 'A-001',
-                authorName: 'Admin',
-                authorRole: 'Admin',
-                content: 'Student requested to withdraw due to personal reasons.',
-                createdAt: 'Mar 5, 2024',
-            },
-        ],
-    },
-];
-
-// Mentor lookup for assignment
-const mentorLookup: Record<string, string> = {
-    'M-001': 'Sarah Chen',
-    'M-002': 'Mike Ross',
-    'M-003': 'Alex Kim',
-    'M-004': 'Jessica Lee',
-    'M-005': 'David Park',
-};
-
-// Cohort lookup
-const cohortLookup: Record<string, string> = {
-    'C-2024-001': 'Spring 2024 Design Systems',
-    'C-2024-002': 'Winter 2024 Product Strategy',
-    'C-2024-003': 'Spring 2024 Foundations',
-    'C-2024-004': 'Summer 2024 Interaction',
-};
+    };
+}
 
 type DrawerMode = 'view' | 'create' | 'edit';
 
@@ -189,7 +87,10 @@ export default function StudentsPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    const [students, setStudents] = useState<Student[]>(initialStudents);
+    const [students, setStudents] = useState<Student[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [cohortOptions, setCohortOptions] = useState<{ value: string; label: string }[]>([]);
+    const [mentorOptionsList, setMentorOptionsList] = useState<{ value: string; label: string }[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<StudentStatus>('All');
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -201,6 +102,33 @@ export default function StudentsPage() {
     // Pagination State
     const [page, setPage] = useState(1);
     const itemsPerPage = 10;
+
+    const fetchStudents = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const [studentsRes, cohortsRes, mentorsRes] = await Promise.all([
+                apiClient.get<{ students: ApiStudent[] }>('/api/v1/students?limit=50'),
+                apiClient.get<{ cohorts: Array<{ id: string; name: string }> }>('/api/v1/cohorts?limit=50').catch(() => ({ cohorts: [] })),
+                apiClient.get<{ mentors: Array<{ id: string; name: string }> }>('/api/v1/mentors?limit=50').catch(() => ({ mentors: [] })),
+            ]);
+            setStudents(studentsRes.students.map(transformStudent));
+            setCohortOptions(cohortsRes.cohorts.map(c => ({ value: c.id, label: c.name })));
+            setMentorOptionsList(mentorsRes.mentors.map(m => ({ value: m.id, label: m.name })));
+        } catch (error) {
+            console.error('Failed to fetch students:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to load students. Please try again.',
+                variant: 'error'
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    }, [toast]);
+
+    useEffect(() => {
+        fetchStudents();
+    }, [fetchStudents]);
 
     const handleNavigate = (page: PageName) => {
         router.push(`/${page}`);
@@ -254,36 +182,63 @@ export default function StudentsPage() {
         }, 200);
     };
 
-    const handleStatusChange = (
+    const handleStatusChange = async (
         newStatus: Student['status'],
         reason?: string
     ) => {
         if (!selectedStudent) return;
-        const updatedStudent: Student = {
-            ...selectedStudent,
-            status: newStatus,
-            flagReason: newStatus === 'Flagged' ? reason : undefined,
-        };
-        setSelectedStudent(updatedStudent);
-        setStudents((prev) =>
-            prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
-        );
-        toast({
-            title: 'Status Updated',
-            description: `${selectedStudent.name} is now ${newStatus}`,
-            variant: 'success',
-        });
+        try {
+            const statusApiMap: Record<string, string> = {
+                'Invited': 'INVITED',
+                'Active': 'ACTIVE',
+                'Flagged': 'FLAGGED',
+                'Dropped': 'DROPPED',
+                'Completed': 'COMPLETED',
+            };
+            await apiClient.put(`/api/v1/students/${selectedStudent.id}`, {
+                status: statusApiMap[newStatus] || newStatus,
+            });
+            const updatedStudent: Student = {
+                ...selectedStudent,
+                status: newStatus,
+                flagReason: newStatus === 'Flagged' ? reason : undefined,
+            };
+            setSelectedStudent(updatedStudent);
+            setStudents((prev) =>
+                prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
+            );
+            toast({
+                title: 'Status Updated',
+                description: `${selectedStudent.name} is now ${newStatus}`,
+                variant: 'success',
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to update student status.',
+                variant: 'error',
+            });
+        }
     };
 
-    const handleDeleteStudent = () => {
+    const handleDeleteStudent = async () => {
         if (!selectedStudent) return;
-        setStudents((prev) => prev.filter((s) => s.id !== selectedStudent.id));
-        toast({
-            title: 'Student Deleted',
-            description: `${selectedStudent.name} has been permanently deleted.`,
-            variant: 'success',
-        });
-        handleCloseDrawer();
+        try {
+            await apiClient.delete(`/api/v1/students/${selectedStudent.id}`);
+            setStudents((prev) => prev.filter((s) => s.id !== selectedStudent.id));
+            toast({
+                title: 'Student Removed',
+                description: `${selectedStudent.name} has been removed.`,
+                variant: 'success',
+            });
+            handleCloseDrawer();
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to remove student.',
+                variant: 'error',
+            });
+        }
     };
 
     const handleResendInvite = () => {
@@ -295,42 +250,60 @@ export default function StudentsPage() {
         });
     };
 
-    const handleAssignMentor = (mentorId: string) => {
+    const handleAssignMentor = async (mentorId: string) => {
         if (!selectedStudent) return;
-        const mentorName = mentorLookup[mentorId] || 'Unknown Mentor';
-        const updatedStudent: Student = {
-            ...selectedStudent,
-            mentor: mentorName,
-            mentorId: mentorId,
-        };
-        setSelectedStudent(updatedStudent);
-        setStudents((prev) =>
-            prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
-        );
-        toast({
-            title: 'Mentor Assigned',
-            description: `${mentorName} is now assigned to ${selectedStudent.name}`,
-            variant: 'success',
-        });
+        try {
+            await apiClient.put(`/api/v1/students/${selectedStudent.id}`, {
+                mentorId: mentorId,
+            });
+            const updatedStudent: Student = {
+                ...selectedStudent,
+                mentorId: mentorId,
+            };
+            setSelectedStudent(updatedStudent);
+            setStudents((prev) =>
+                prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
+            );
+            toast({
+                title: 'Mentor Assigned',
+                description: `Mentor has been assigned to ${selectedStudent.name}`,
+                variant: 'success',
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to assign mentor.',
+                variant: 'error',
+            });
+        }
     };
 
-    const handleTransferCohort = (cohortId: string) => {
+    const handleTransferCohort = async (cohortId: string) => {
         if (!selectedStudent) return;
-        const cohortName = cohortLookup[cohortId] || 'Unknown Cohort';
-        const updatedStudent: Student = {
-            ...selectedStudent,
-            cohortId: cohortId,
-            cohortName: cohortName,
-        };
-        setSelectedStudent(updatedStudent);
-        setStudents((prev) =>
-            prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
-        );
-        toast({
-            title: 'Student Transferred',
-            description: `${selectedStudent.name} transferred to ${cohortName}`,
-            variant: 'success',
-        });
+        try {
+            await apiClient.put(`/api/v1/students/${selectedStudent.id}`, {
+                cohortId: cohortId,
+            });
+            const updatedStudent: Student = {
+                ...selectedStudent,
+                cohortId: cohortId,
+            };
+            setSelectedStudent(updatedStudent);
+            setStudents((prev) =>
+                prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
+            );
+            toast({
+                title: 'Student Transferred',
+                description: `${selectedStudent.name} has been transferred.`,
+                variant: 'success',
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to transfer student.',
+                variant: 'error',
+            });
+        }
     };
 
     const handleAddNote = (content: string) => {
@@ -389,34 +362,20 @@ export default function StudentsPage() {
         });
     };
 
-    const handleFormSubmit = (data: StudentFormData) => {
+    const handleFormSubmit = async (data: StudentFormData) => {
         setIsSubmitting(true);
-        setTimeout(() => {
+        try {
             if (drawerMode === 'create') {
-                const newStudent: Student = {
-                    id: `S-${String(students.length + 1001).padStart(4, '0')}`,
-                    name: data.name,
+                const payload = {
                     email: data.email,
-                    phone: data.phone || undefined,
-                    alternatePhone: data.alternatePhone || undefined,
-                    whatsappOptIn: data.whatsappOptIn,
+                    name: data.name,
                     cohortId: data.cohortId,
-                    cohortName: cohortLookup[data.cohortId] || 'Unknown Cohort',
-                    status: 'Invited',
-                    mentor: data.mentorId ? mentorLookup[data.mentorId] : null,
-                    mentorId: data.mentorId || null,
-                    lastActivity: 'Never',
-                    enrollmentDate: new Date().toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                    }),
-                    progress: 0,
-                    sessionsAttended: 0,
-                    totalSessions: 12,
-                    paymentStatus: data.paymentStatus,
-                    notes: [],
+                    phone: data.phone || undefined,
+                    whatsappOptIn: data.whatsappOptIn,
+                    status: 'INVITED',
                 };
+                const created = await apiClient.post<ApiStudent>('/api/v1/students', payload);
+                const newStudent = transformStudent(created);
                 setStudents((prev) => [newStudent, ...prev]);
                 toast({
                     title: 'Student Added',
@@ -424,20 +383,18 @@ export default function StudentsPage() {
                     variant: 'success',
                 });
             } else if (drawerMode === 'edit' && selectedStudent) {
+                const payload = {
+                    cohortId: data.cohortId,
+                    phone: data.phone || undefined,
+                    whatsappOptIn: data.whatsappOptIn,
+                };
+                await apiClient.put(`/api/v1/students/${selectedStudent.id}`, payload);
                 const updatedStudent: Student = {
                     ...selectedStudent,
-                    name: data.name,
                     email: data.email,
                     phone: data.phone || undefined,
-                    alternatePhone: data.alternatePhone || undefined,
                     whatsappOptIn: data.whatsappOptIn,
                     cohortId: data.cohortId,
-                    cohortName: cohortLookup[data.cohortId] || selectedStudent.cohortName,
-                    mentor: data.mentorId
-                        ? mentorLookup[data.mentorId]
-                        : selectedStudent.mentor,
-                    mentorId: data.mentorId || selectedStudent.mentorId,
-                    paymentStatus: data.paymentStatus,
                 };
                 setStudents((prev) =>
                     prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
@@ -449,9 +406,17 @@ export default function StudentsPage() {
                     variant: 'success',
                 });
             }
-            setIsSubmitting(false);
             handleCloseDrawer();
-        }, 500);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : `Failed to ${drawerMode} student.`;
+            toast({
+                title: 'Error',
+                description: message,
+                variant: 'error',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const studentToFormData = (student: Student): Partial<StudentFormData> => ({
@@ -516,7 +481,7 @@ export default function StudentsPage() {
 
                         {cohortFilter && (
                             <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-md text-sm font-medium self-start sm:self-center">
-                                <span>Filtering by Cohort: {cohortLookup[cohortFilter]}</span>
+                                <span>Filtering by Cohort</span>
                                 <button
                                     onClick={() => setCohortFilter(null)}
                                     className="hover:bg-primary/20 rounded-full p-0.5"
@@ -546,19 +511,27 @@ export default function StudentsPage() {
                 </div>
 
                 {/* Main Table */}
-                <StudentsTable
-                    students={paginatedStudents}
-                    onStudentClick={handleStudentClick}
-                />
+                {isLoading ? (
+                    <div className="flex justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                ) : (
+                    <StudentsTable
+                        students={paginatedStudents}
+                        onStudentClick={handleStudentClick}
+                    />
+                )}
 
                 {/* Pagination */}
-                <Pagination
-                    currentPage={page}
-                    totalPages={totalPages}
-                    totalItems={filteredStudents.length}
-                    itemsPerPage={itemsPerPage}
-                    onPageChange={setPage}
-                />
+                {!isLoading && (
+                    <Pagination
+                        currentPage={page}
+                        totalPages={totalPages}
+                        totalItems={filteredStudents.length}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={setPage}
+                    />
+                )}
 
                 {/* Detail Drawer */}
                 <Drawer
@@ -600,6 +573,8 @@ export default function StudentsPage() {
                             onSubmit={handleFormSubmit}
                             onCancel={handleCloseDrawer}
                             mode="create"
+                            cohortOptions={cohortOptions}
+                            mentorOptions={mentorOptionsList}
                         />
                     )}
 
@@ -609,6 +584,8 @@ export default function StudentsPage() {
                             onSubmit={handleFormSubmit}
                             onCancel={handleCloseDrawer}
                             mode="edit"
+                            cohortOptions={cohortOptions}
+                            mentorOptions={mentorOptionsList}
                         />
                     )}
                 </Drawer>

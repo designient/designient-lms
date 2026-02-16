@@ -10,12 +10,12 @@ interface CohortsTableProps {
 }
 
 export function CohortsTable({ cohorts, onCohortClick }: CohortsTableProps) {
-    const getStatusVariant = (status: Cohort['status']) => {
+    const getStatusVariant = (status: Cohort['status']): 'success' | 'neutral' | 'warning' | 'secondary' | 'default' => {
         switch (status) {
             case 'Active':
                 return 'success';
             case 'Upcoming':
-                return 'primary';
+                return 'warning';
             case 'Completed':
                 return 'neutral';
             case 'Archived':

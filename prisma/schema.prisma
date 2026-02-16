@@ -293,17 +293,19 @@ model Program {
 }
 
 model Cohort {
-  id        String       @id @default(cuid())
-  name      String
-  programId String       @map("program_id")
-  startDate DateTime     @map("start_date")
-  endDate   DateTime?    @map("end_date")
-  status    CohortStatus @default(UPCOMING)
-  capacity  Int          @default(25)
-  price     Float        @default(0)
-  currency  String       @default("INR")
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
+  id                  String       @id @default(cuid())
+  name                String
+  programId           String       @map("program_id")
+  startDate           DateTime     @map("start_date")
+  endDate             DateTime?    @map("end_date")
+  status              CohortStatus @default(UPCOMING)
+  capacity            Int          @default(25)
+  price               Float        @default(0)
+  currency            String       @default("INR")
+  description         String?
+  enrollmentDeadline  DateTime?    @map("enrollment_deadline")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
 
   program   Program         @relation(fields: [programId], references: [id], onDelete: Cascade)
   students  StudentProfile[]

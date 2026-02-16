@@ -22,60 +22,30 @@ export interface CohortFormData {
     enrollmentDeadline: string;
 }
 
+interface SelectOption {
+    value: string;
+    label: string;
+    role?: string;
+}
+
 interface CohortFormProps {
     initialData?: Partial<CohortFormData>;
     onSubmit: (data: CohortFormData) => void;
     onCancel: () => void;
     mode?: 'create' | 'edit';
+    programOptions?: SelectOption[];
+    mentorOptionsList?: SelectOption[];
 }
 
-// Options
-const programOptions = [
-    { value: 'advanced-ui', label: 'Advanced UI' },
-    { value: 'product-design', label: 'Product Design' },
-    { value: 'ux-fundamentals', label: 'UX Fundamentals' },
-    { value: 'ux-research', label: 'UX Research' },
-    { value: 'interaction-design', label: 'Interaction Design' },
-    { value: 'career-development', label: 'Career Development' }
-];
+// Fallback options (used only if no dynamic options provided)
+const defaultProgramOptions: SelectOption[] = [];
 
 const statusOptions = [
     { value: 'Upcoming', label: 'Upcoming' },
     { value: 'Active', label: 'Active' }
 ];
 
-const mentorOptions = [
-    {
-        value: 'sarah-chen',
-        label: 'Sarah Chen',
-        role: 'Senior Design Lead'
-    },
-    {
-        value: 'mike-ross',
-        label: 'Mike Ross',
-        role: 'Product Designer'
-    },
-    {
-        value: 'alex-kim',
-        label: 'Alex Kim',
-        role: 'UX Strategist'
-    },
-    {
-        value: 'jessica-lee',
-        label: 'Jessica Lee',
-        role: 'Design Manager'
-    },
-    {
-        value: 'david-park',
-        label: 'David Park',
-        role: 'UI Designer'
-    },
-    {
-        value: 'emily-white',
-        label: 'Emily White',
-        role: 'UX Researcher'
-    }
-];
+const defaultMentorOptions: SelectOption[] = [];
 
 const defaultFormData: CohortFormData = {
     name: '',
@@ -95,8 +65,11 @@ export function CreateCohortDrawer({
     initialData,
     onSubmit,
     onCancel,
-    mode = 'create'
+    mode = 'create',
+    programOptions = defaultProgramOptions,
+    mentorOptionsList = defaultMentorOptions,
 }: CohortFormProps) {
+    const mentorOptions = mentorOptionsList;
     const [formData, setFormData] = useState<CohortFormData>({
         ...defaultFormData,
         ...initialData

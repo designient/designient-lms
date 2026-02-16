@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { CohortsTable } from '@/components/cohorts/CohortsTable';
@@ -18,182 +18,75 @@ import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { PageName } from '@/types';
 import { Cohort } from '@/types';
-
-// Mock Data
-const initialCohorts: Cohort[] = [
-    {
-        id: 'C-2024-001',
-        name: 'Spring 2024 Design Systems',
-        programId: 'P-001',
-        programName: 'Advanced UI',
-        startDate: 'Mar 1, 2024',
-        endDate: 'May 24, 2024',
-        mentors: ['Sarah Chen', 'Mike Ross'],
-        mentorIds: ['M-001', 'M-002'],
-        studentCount: 24,
-        capacity: 30,
-        enrollmentDeadline: 'Feb 25, 2024',
-        price: 2500,
-        currency: 'USD',
-        status: 'Active'
-    },
-    {
-        id: 'C-2024-002',
-        name: 'Winter 2024 Product Strategy',
-        programId: 'P-002',
-        programName: 'Product Design',
-        startDate: 'Feb 15, 2024',
-        endDate: 'May 10, 2024',
-        mentors: ['Alex Kim', 'Jessica Lee', 'David Park'],
-        mentorIds: ['M-003', 'M-004', 'M-005'],
-        studentCount: 18,
-        capacity: 25,
-        enrollmentDeadline: 'Feb 10, 2024',
-        price: 2800,
-        currency: 'USD',
-        status: 'Active'
-    },
-    {
-        id: 'C-2024-003',
-        name: 'Spring 2024 Foundations',
-        programId: 'P-003',
-        programName: 'UX Fundamentals',
-        startDate: 'Apr 1, 2024',
-        endDate: 'Jun 28, 2024',
-        mentors: ['Emily White'],
-        mentorIds: ['M-006'],
-        studentCount: 32,
-        capacity: 40,
-        enrollmentDeadline: 'Mar 25, 2024',
-        price: 1800,
-        currency: 'USD',
-        status: 'Upcoming'
-    },
-    {
-        id: 'C-2023-012',
-        name: 'Winter 2023 Advanced UI',
-        programId: 'P-001',
-        programName: 'Advanced UI',
-        startDate: 'Nov 10, 2023',
-        endDate: 'Feb 2, 2024',
-        mentors: ['Sarah Chen', 'Tom Wilson'],
-        mentorIds: ['M-001', 'M-007'],
-        studentCount: 22,
-        capacity: 25,
-        enrollmentDeadline: 'Nov 5, 2023',
-        price: 2400,
-        currency: 'USD',
-        status: 'Completed'
-    },
-    {
-        id: 'C-2023-011',
-        name: 'Fall 2023 Research',
-        programId: 'P-004',
-        programName: 'UX Research',
-        startDate: 'Sep 5, 2023',
-        endDate: 'Nov 28, 2023',
-        mentors: ['Lisa Wang', 'James Miller'],
-        mentorIds: ['M-008', 'M-009'],
-        studentCount: 15,
-        capacity: 20,
-        enrollmentDeadline: 'Aug 30, 2023',
-        price: 2200,
-        currency: 'USD',
-        status: 'Completed'
-    },
-    {
-        id: 'C-2024-004',
-        name: 'Summer 2024 Interaction',
-        programId: 'P-005',
-        programName: 'Interaction Design',
-        startDate: 'Jun 15, 2024',
-        endDate: 'Aug 30, 2024',
-        mentors: ['Mike Ross', 'David Park'],
-        mentorIds: ['M-002', 'M-005'],
-        studentCount: 0,
-        capacity: 30,
-        enrollmentDeadline: 'Jun 10, 2024',
-        price: 2600,
-        currency: 'USD',
-        status: 'Upcoming'
-    },
-    {
-        id: 'C-2023-010',
-        name: 'Fall 2023 Product Strategy',
-        programId: 'P-002',
-        programName: 'Product Design',
-        startDate: 'Sep 1, 2023',
-        endDate: 'Nov 24, 2023',
-        mentors: ['Alex Kim'],
-        mentorIds: ['M-003'],
-        studentCount: 20,
-        capacity: 25,
-        enrollmentDeadline: 'Aug 25, 2023',
-        price: 2800,
-        currency: 'USD',
-        status: 'Completed'
-    },
-    {
-        id: 'C-2024-005',
-        name: 'Spring 2024 Career Prep',
-        programId: 'P-006',
-        programName: 'Career Development',
-        startDate: 'Mar 15, 2024',
-        endDate: 'Apr 26, 2024',
-        mentors: ['Jessica Lee', 'Tom Wilson'],
-        mentorIds: ['M-004', 'M-007'],
-        studentCount: 35,
-        capacity: 50,
-        enrollmentDeadline: 'Mar 10, 2024',
-        price: 1200,
-        currency: 'USD',
-        status: 'Active'
-    }
-];
+import { apiClient } from '@/lib/api-client';
 
 type DrawerMode = 'view' | 'create' | 'edit';
 
-// Helper to convert cohort data to form data format
-const cohortToFormData = (cohort: Cohort): Partial<CohortFormData> => {
-    const programMap: Record<string, string> = {
-        'Advanced UI': 'advanced-ui',
-        'Product Design': 'product-design',
-        'UX Fundamentals': 'ux-fundamentals',
-        'UX Research': 'ux-research',
-        'Interaction Design': 'interaction-design',
-        'Career Development': 'career-development'
-    };
-    const mentorMap: Record<string, string> = {
-        'Sarah Chen': 'sarah-chen',
-        'Mike Ross': 'mike-ross',
-        'Alex Kim': 'alex-kim',
-        'Jessica Lee': 'jessica-lee',
-        'David Park': 'david-park',
-        'Emily White': 'emily-white'
+const statusToApi: Record<string, string> = { 'Upcoming': 'UPCOMING', 'Active': 'ACTIVE', 'Completed': 'COMPLETED', 'Archived': 'ARCHIVED' };
+const statusFromApi: Record<string, Cohort['status']> = { 'UPCOMING': 'Upcoming', 'ACTIVE': 'Active', 'COMPLETED': 'Completed', 'ARCHIVED': 'Archived' };
+
+function toIsoDatetime(dateStr: string): string {
+    if (!dateStr) return '';
+    if (dateStr.includes('T')) return dateStr;
+    return new Date(dateStr + 'T00:00:00.000Z').toISOString();
+}
+
+interface ApiCohort {
+    id: string;
+    name: string;
+    programId: string;
+    startDate: string;
+    endDate: string | null;
+    status: string;
+    capacity: number;
+    price: number | null;
+    currency: string | null;
+    description: string | null;
+    enrollmentDeadline: string | null;
+    program?: { id: string; name: string; slug: string };
+    _count?: { students: number; mentors: number };
+    mentors?: Array<{ id: string; user: { id: string; name: string } }>;
+}
+
+function transformCohort(raw: ApiCohort): Cohort {
+    const formatDate = (d: string | null) => {
+        if (!d) return '';
+        return new Date(d).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
     };
 
     return {
-        name: cohort.name,
-        program: programMap[cohort.programName] || '',
-        startDate: '', // Should parse date properly in real app
-        endDate: '',
-        status: cohort.status === 'Active' ? 'Active' : 'Upcoming',
-        mentors: cohort.mentors.map((m) => mentorMap[m] || '').filter(Boolean),
-        description: cohort.description || '',
-        capacity: cohort.capacity,
-        price: cohort.price,
-        currency: cohort.currency,
-        enrollmentDeadline: ''
+        id: raw.id,
+        name: raw.name,
+        programId: raw.programId,
+        programName: raw.program?.name || '',
+        startDate: formatDate(raw.startDate),
+        endDate: formatDate(raw.endDate),
+        mentors: raw.mentors?.map(m => m.user.name) || [],
+        mentorIds: raw.mentors?.map(m => m.id) || [],
+        studentCount: raw._count?.students ?? 0,
+        capacity: raw.capacity,
+        enrollmentDeadline: formatDate(raw.enrollmentDeadline),
+        price: raw.price ?? 0,
+        currency: raw.currency || 'USD',
+        status: statusFromApi[raw.status] || raw.status as Cohort['status'],
+        description: raw.description || undefined,
     };
-};
+}
 
 export default function CohortsPage() {
     const router = useRouter();
     const { toast } = useToast();
-    const [cohorts, setCohorts] = useState<Cohort[]>(initialCohorts);
+    const [cohorts, setCohorts] = useState<Cohort[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [programOptions, setProgramOptions] = useState<{ value: string; label: string }[]>([]);
+    const [mentorOptionsList, setMentorOptionsList] = useState<{ value: string; label: string; role?: string }[]>([]);
     const [selectedCohort, setSelectedCohort] = useState<Cohort | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [drawerMode, setDrawerMode] = useState<DrawerMode>('view');
@@ -206,6 +99,33 @@ export default function CohortsPage() {
     // Pagination State
     const [page, setPage] = useState(1);
     const itemsPerPage = 10;
+
+    const fetchCohorts = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const [cohortsRes, programsRes, mentorsRes] = await Promise.all([
+                apiClient.get<{ cohorts: ApiCohort[] }>('/api/v1/cohorts?limit=50'),
+                apiClient.get<{ programs: Array<{ id: string; name: string }> }>('/api/v1/programs?limit=50').catch(() => ({ programs: [] })),
+                apiClient.get<{ mentors: Array<{ id: string; name: string; specialization?: string }> }>('/api/v1/mentors?limit=50').catch(() => ({ mentors: [] })),
+            ]);
+            setCohorts(cohortsRes.cohorts.map(transformCohort));
+            setProgramOptions(programsRes.programs.map(p => ({ value: p.id, label: p.name })));
+            setMentorOptionsList(mentorsRes.mentors.map(m => ({ value: m.id, label: m.name, role: m.specialization })));
+        } catch (error) {
+            console.error('Failed to fetch cohorts:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to load cohorts. Please try again.',
+                variant: 'error'
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    }, [toast]);
+
+    useEffect(() => {
+        fetchCohorts();
+    }, [fetchCohorts]);
 
     // Filter Logic
     const filteredCohorts = useMemo(() => {
@@ -251,90 +171,131 @@ export default function CohortsPage() {
         setDrawerMode('edit');
     };
 
-    const handleArchive = () => {
+    const handleArchive = async () => {
         if (!selectedCohort) return;
-        setCohorts((prev) =>
-            prev.map((c) =>
-                c.id === selectedCohort.id
-                    ? { ...c, status: 'Archived' as const }
-                    : c
-            )
-        );
-        setSelectedCohort((prev) =>
-            prev ? { ...prev, status: 'Archived' as const } : null
-        );
-        toast({
-            title: 'Cohort Archived',
-            description: `${selectedCohort.name} has been archived.`,
-            variant: 'info'
-        });
+        try {
+            await apiClient.put(`/api/v1/cohorts/${selectedCohort.id}`, {
+                status: 'ARCHIVED'
+            });
+            const updatedCohort: Cohort = { ...selectedCohort, status: 'Archived' };
+            setCohorts((prev) =>
+                prev.map((c) => (c.id === selectedCohort.id ? updatedCohort : c))
+            );
+            setSelectedCohort(updatedCohort);
+            toast({
+                title: 'Cohort Archived',
+                description: `${selectedCohort.name} has been archived.`,
+                variant: 'info'
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to archive cohort.',
+                variant: 'error'
+            });
+        }
     };
 
-    const handleRestore = () => {
+    const handleRestore = async () => {
         if (!selectedCohort) return;
-        setCohorts((prev) =>
-            prev.map((c) =>
-                c.id === selectedCohort.id
-                    ? { ...c, status: 'Upcoming' as const } // Default restore state
-                    : c
-            )
-        );
-        setSelectedCohort((prev) =>
-            prev ? { ...prev, status: 'Upcoming' as const } : null
-        );
-        toast({
-            title: 'Cohort Restored',
-            description: `${selectedCohort.name} has been restored.`,
-            variant: 'success'
-        });
+        try {
+            await apiClient.put(`/api/v1/cohorts/${selectedCohort.id}`, {
+                status: 'UPCOMING'
+            });
+            const updatedCohort: Cohort = { ...selectedCohort, status: 'Upcoming' };
+            setCohorts((prev) =>
+                prev.map((c) => (c.id === selectedCohort.id ? updatedCohort : c))
+            );
+            setSelectedCohort(updatedCohort);
+            toast({
+                title: 'Cohort Restored',
+                description: `${selectedCohort.name} has been restored.`,
+                variant: 'success'
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to restore cohort.',
+                variant: 'error'
+            });
+        }
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (!selectedCohort) return;
-        setCohorts((prev) => prev.filter((c) => c.id !== selectedCohort.id));
-        toast({
-            title: 'Cohort Deleted',
-            description: `${selectedCohort.name} has been permanently deleted.`,
-            variant: 'success'
-        });
-        handleCloseDrawer();
+        try {
+            await apiClient.delete(`/api/v1/cohorts/${selectedCohort.id}`);
+            setCohorts((prev) => prev.filter((c) => c.id !== selectedCohort.id));
+            toast({
+                title: 'Cohort Deleted',
+                description: `${selectedCohort.name} has been permanently deleted.`,
+                variant: 'success'
+            });
+            handleCloseDrawer();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to delete cohort.';
+            toast({
+                title: 'Error',
+                description: message,
+                variant: 'error'
+            });
+        }
     };
 
-    const handleDuplicate = () => {
+    const handleDuplicate = async () => {
         if (!selectedCohort) return;
-        const newCohort: Cohort = {
-            ...selectedCohort,
-            id: `C-2024-${String(cohorts.length + 1).padStart(3, '0')}`,
-            name: `${selectedCohort.name} (Copy)`,
-            status: 'Upcoming',
-            studentCount: 0
-        };
-        setCohorts((prev) => [newCohort, ...prev]);
-        toast({
-            title: 'Cohort Duplicated',
-            description: `Created "${newCohort.name}" as upcoming.`,
-            variant: 'success'
-        });
-        setSelectedCohort(newCohort);
+        try {
+            const newCohortData = {
+                name: `${selectedCohort.name} (Copy)`,
+                programId: selectedCohort.programId,
+                startDate: new Date().toISOString(),
+                status: 'UPCOMING',
+                capacity: selectedCohort.capacity,
+                price: selectedCohort.price,
+                currency: selectedCohort.currency,
+                description: selectedCohort.description,
+            };
+            const created = await apiClient.post<ApiCohort>('/api/v1/cohorts', newCohortData);
+            const newCohort = transformCohort(created);
+            setCohorts((prev) => [newCohort, ...prev]);
+            toast({
+                title: 'Cohort Duplicated',
+                description: `Created "${newCohort.name}" as upcoming.`,
+                variant: 'success'
+            });
+            setSelectedCohort(newCohort);
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to duplicate cohort.',
+                variant: 'error'
+            });
+        }
     };
 
-    const handleMarkComplete = () => {
+    const handleMarkComplete = async () => {
         if (!selectedCohort) return;
-        setCohorts((prev) =>
-            prev.map((c) =>
-                c.id === selectedCohort.id
-                    ? { ...c, status: 'Completed' as const }
-                    : c
-            )
-        );
-        setSelectedCohort((prev) =>
-            prev ? { ...prev, status: 'Completed' as const } : null
-        );
-        toast({
-            title: 'Cohort Completed',
-            description: `${selectedCohort.name} has been marked as completed. Students are now eligible for certificates.`,
-            variant: 'success'
-        });
+        try {
+            await apiClient.put(`/api/v1/cohorts/${selectedCohort.id}`, {
+                status: 'COMPLETED'
+            });
+            const updatedCohort: Cohort = { ...selectedCohort, status: 'Completed' };
+            setCohorts((prev) =>
+                prev.map((c) => (c.id === selectedCohort.id ? updatedCohort : c))
+            );
+            setSelectedCohort(updatedCohort);
+            toast({
+                title: 'Cohort Completed',
+                description: `${selectedCohort.name} has been marked as completed. Students are now eligible for certificates.`,
+                variant: 'success'
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to mark cohort as completed.',
+                variant: 'error'
+            });
+        }
     };
 
     const handleCloseDrawer = () => {
@@ -345,53 +306,22 @@ export default function CohortsPage() {
         }, 200);
     };
 
-    const handleFormSubmit = (data: CohortFormData) => {
+    const handleFormSubmit = async (data: CohortFormData) => {
         setIsSubmitting(true);
-        setTimeout(() => {
+        try {
             if (drawerMode === 'create') {
-                const newCohort: Cohort = {
-                    id: `C-2024-${String(cohorts.length + 1).padStart(3, '0')}`,
+                const payload = {
                     name: data.name,
-                    programId: 'P-NEW',
-                    programName: data.program
-                        .split('-')
-                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                        .join(' '),
-                    startDate: new Date(data.startDate).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                    }),
-                    endDate: new Date(data.endDate).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                    }),
-                    mentors: data.mentors.map((m) =>
-                        m
-                            .split('-')
-                            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                            .join(' ')
-                    ),
-                    mentorIds: [],
-                    studentCount: 0,
+                    programId: data.program,
+                    startDate: toIsoDatetime(data.startDate),
+                    endDate: data.endDate ? toIsoDatetime(data.endDate) : undefined,
+                    status: statusToApi[data.status] || data.status,
                     capacity: data.capacity || 30,
-                    enrollmentDeadline: data.enrollmentDeadline
-                        ? new Date(data.enrollmentDeadline).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                        })
-                        : new Date(data.startDate).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                        }),
                     price: data.price,
                     currency: data.currency,
-                    status: data.status,
-                    description: data.description
                 };
+                const created = await apiClient.post<ApiCohort>('/api/v1/cohorts', payload);
+                const newCohort = transformCohort(created);
                 setCohorts((prev) => [newCohort, ...prev]);
                 toast({
                     title: 'Cohort Created',
@@ -399,39 +329,18 @@ export default function CohortsPage() {
                     variant: 'success'
                 });
             } else if (drawerMode === 'edit' && selectedCohort) {
-                const updatedCohort: Cohort = {
-                    ...selectedCohort,
+                const payload = {
                     name: data.name,
-                    programName: data.program
-                        .split('-')
-                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                        .join(' '),
-                    startDate: data.startDate
-                        ? new Date(data.startDate).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                        })
-                        : selectedCohort.startDate,
-                    endDate: data.endDate
-                        ? new Date(data.endDate).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                        })
-                        : selectedCohort.endDate,
-                    mentors: data.mentors.map((m) =>
-                        m
-                            .split('-')
-                            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                            .join(' ')
-                    ),
+                    programId: data.program,
+                    startDate: data.startDate ? toIsoDatetime(data.startDate) : undefined,
+                    endDate: data.endDate ? toIsoDatetime(data.endDate) : undefined,
+                    status: statusToApi[data.status] || data.status,
                     capacity: data.capacity,
                     price: data.price,
                     currency: data.currency,
-                    status: data.status,
-                    description: data.description
                 };
+                const updated = await apiClient.put<ApiCohort>(`/api/v1/cohorts/${selectedCohort.id}`, payload);
+                const updatedCohort = transformCohort(updated);
                 setCohorts((prev) =>
                     prev.map((c) => (c.id === selectedCohort.id ? updatedCohort : c))
                 );
@@ -442,9 +351,33 @@ export default function CohortsPage() {
                     variant: 'success'
                 });
             }
-            setIsSubmitting(false);
             handleCloseDrawer();
-        }, 500);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : `Failed to ${drawerMode} cohort.`;
+            toast({
+                title: 'Error',
+                description: message,
+                variant: 'error'
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const cohortToFormData = (cohort: Cohort): Partial<CohortFormData> => {
+        return {
+            name: cohort.name,
+            program: cohort.programId,
+            startDate: '',
+            endDate: '',
+            status: cohort.status === 'Completed' || cohort.status === 'Archived' ? 'Active' : cohort.status,
+            mentors: cohort.mentorIds || [],
+            description: cohort.description || '',
+            capacity: cohort.capacity,
+            price: cohort.price,
+            currency: cohort.currency,
+            enrollmentDeadline: ''
+        };
     };
 
     const getDrawerTitle = () => {
@@ -496,16 +429,24 @@ export default function CohortsPage() {
                 </div>
 
                 {/* Main Table */}
-                <CohortsTable cohorts={paginatedCohorts} onCohortClick={handleCohortClick} />
+                {isLoading ? (
+                    <div className="flex justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                ) : (
+                    <CohortsTable cohorts={paginatedCohorts} onCohortClick={handleCohortClick} />
+                )}
 
                 {/* Pagination */}
-                <Pagination
-                    currentPage={page}
-                    totalPages={totalPages}
-                    totalItems={filteredCohorts.length}
-                    itemsPerPage={itemsPerPage}
-                    onPageChange={setPage}
-                />
+                {!isLoading && (
+                    <Pagination
+                        currentPage={page}
+                        totalPages={totalPages}
+                        totalItems={filteredCohorts.length}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={setPage}
+                    />
+                )}
 
                 {/* Drawer */}
                 <Drawer
@@ -557,6 +498,8 @@ export default function CohortsPage() {
                             onSubmit={handleFormSubmit}
                             onCancel={handleCloseDrawer}
                             mode="create"
+                            programOptions={programOptions}
+                            mentorOptionsList={mentorOptionsList}
                         />
                     )}
 
@@ -566,6 +509,8 @@ export default function CohortsPage() {
                             onSubmit={handleFormSubmit}
                             onCancel={handleCloseDrawer}
                             mode="edit"
+                            programOptions={programOptions}
+                            mentorOptionsList={mentorOptionsList}
                         />
                     )}
                 </Drawer>

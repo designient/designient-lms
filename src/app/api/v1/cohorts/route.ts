@@ -76,9 +76,9 @@ export const POST = withAuth(
             const cohort = await prisma.cohort.create({
                 data: {
                     ...parsed.data,
-                    // Ensure dates are Date objects if not handled by Zod transformation
                     startDate: new Date(parsed.data.startDate),
                     endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null,
+                    enrollmentDeadline: parsed.data.enrollmentDeadline ? new Date(parsed.data.enrollmentDeadline) : null,
                 },
             });
 
@@ -89,5 +89,5 @@ export const POST = withAuth(
             return handleApiError(error);
         }
     },
-    ['ADMIN', 'INSTRUCTOR', 'PROGRAM_MANAGER']
+    ['ADMIN', 'INSTRUCTOR', 'ADMIN']
 );

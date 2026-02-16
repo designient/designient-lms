@@ -128,5 +128,5 @@ export const POST = withAuth(
             return handleApiError(error);
         }
     },
-    ['ADMIN', 'INSTRUCTOR', 'PROGRAM_MANAGER']
+    ['ADMIN', 'INSTRUCTOR', 'ADMIN']
 );

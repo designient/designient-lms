@@ -84,7 +84,7 @@ export function MentorDrawer({
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [maxCohorts, setMaxCohorts] = useState(mentor.maxCohorts);
 
-    const getCohortStatusVariant = (status: AssignedCohort['status']) => {
+    const getCohortStatusVariant = (status: string) => {
         switch (status) {
             case 'Active':
                 return 'success';

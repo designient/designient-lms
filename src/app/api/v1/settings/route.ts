@@ -27,7 +27,7 @@ export const GET = withAuth(
             return handleApiError(error);
         }
     },
-    ['ADMIN', 'INSTRUCTOR', 'PROGRAM_MANAGER', 'STUDENT']
+    ['ADMIN', 'INSTRUCTOR', 'ADMIN', 'STUDENT']
 );
 
 // PUT /api/v1/settings - Update settings

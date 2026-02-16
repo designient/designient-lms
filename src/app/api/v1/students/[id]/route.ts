@@ -8,11 +8,12 @@ import { logAudit } from '@/lib/audit';
 // GET /api/v1/students/[id] - Get student details
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: studentId } = await params;
         const student = await prisma.studentProfile.findUnique({
-            where: { id: params.id },
+            where: { id: studentId },
             include: {
                 user: { select: { id: true, name: true, email: true, avatarUrl: true, createdAt: true } },
                 cohort: { select: { id: true, name: true, startDate: true, endDate: true } },
@@ -44,7 +45,7 @@ export async function GET(
 export const PUT = withAuth(
     async (req: NextRequest, ctx, user) => {
         try {
-            const id = ctx.params.id;
+            const { id } = await ctx.params;
             const body = await req.json();
             const parsed = studentProfileUpdateSchema.safeParse(body);
 
@@ -62,21 +63,21 @@ export const PUT = withAuth(
                 data: parsed.data,
             });
 
-            await logAudit(user.id, 'STUDENT_UPDATED', 'StudentProfile', id, JSON.stringify(parsed.data));
+            await logAudit(user.id, 'STUDENT_UPDATED', 'StudentProfile', id, parsed.data as Record<string, unknown>);
 
             return apiSuccess(updatedStudent);
         } catch (error) {
             return handleApiError(error);
         }
     },
-    ['ADMIN', 'INSTRUCTOR', 'PROGRAM_MANAGER']
+    ['ADMIN', 'INSTRUCTOR', 'ADMIN']
 );
 
 // DELETE /api/v1/students/[id] - Deactivate/Delete student
 export const DELETE = withAuth(
     async (req: NextRequest, ctx, user) => {
         try {
-            const id = ctx.params.id;
+            const { id } = await ctx.params;
 
             const student = await prisma.studentProfile.findUnique({ where: { id } });
             if (!student) {
@@ -96,5 +97,5 @@ export const DELETE = withAuth(
             return handleApiError(error);
         }
     },
-    ['ADMIN', 'INSTRUCTOR', 'PROGRAM_MANAGER']
+    ['ADMIN', 'INSTRUCTOR', 'ADMIN']
 );

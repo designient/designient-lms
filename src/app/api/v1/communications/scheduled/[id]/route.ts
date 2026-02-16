@@ -8,7 +8,7 @@ import { logAudit } from '@/lib/audit';
 export const DELETE = withAuth(
     async (req: NextRequest, ctx, user) => {
         try {
-            const id = ctx.params.id;
+            const { id } = await ctx.params;
 
             const message = await prisma.message.findUnique({ where: { id } });
             if (!message) {
@@ -33,5 +33,5 @@ export const DELETE = withAuth(
             return handleApiError(error);
         }
     },
-    ['ADMIN', 'INSTRUCTOR', 'PROGRAM_MANAGER']
+    ['ADMIN', 'INSTRUCTOR', 'ADMIN']
 );

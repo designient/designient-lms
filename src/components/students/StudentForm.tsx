@@ -21,55 +21,19 @@ export interface StudentFormData {
     sendInvite: boolean;
 }
 
+interface SelectOption {
+    value: string;
+    label: string;
+}
+
 interface StudentFormProps {
     initialData?: Partial<StudentFormData>;
     onSubmit: (data: StudentFormData) => void;
     onCancel: () => void;
     mode?: 'create' | 'edit';
+    cohortOptions?: SelectOption[];
+    mentorOptions?: SelectOption[];
 }
-
-// Mock Options - In a real app, these would come from props or context
-const cohortOptions = [
-    {
-        value: 'C-2024-001',
-        label: 'Spring 2024 Design Systems',
-    },
-    {
-        value: 'C-2024-002',
-        label: 'Winter 2024 Product Strategy',
-    },
-    {
-        value: 'C-2024-003',
-        label: 'Spring 2024 Foundations',
-    },
-    {
-        value: 'C-2024-004',
-        label: 'Summer 2024 Interaction',
-    },
-];
-
-const mentorOptions = [
-    {
-        value: 'M-001',
-        label: 'Sarah Chen',
-    },
-    {
-        value: 'M-002',
-        label: 'Mike Ross',
-    },
-    {
-        value: 'M-003',
-        label: 'Alex Kim',
-    },
-    {
-        value: 'M-004',
-        label: 'Jessica Lee',
-    },
-    {
-        value: 'M-005',
-        label: 'David Park',
-    },
-];
 
 const paymentOptions = [
     {
@@ -99,6 +63,8 @@ export function StudentForm({
     onSubmit,
     onCancel,
     mode = 'create',
+    cohortOptions = [],
+    mentorOptions = [],
 }: StudentFormProps) {
     const [formData, setFormData] = useState<StudentFormData>({
         ...defaultFormData,

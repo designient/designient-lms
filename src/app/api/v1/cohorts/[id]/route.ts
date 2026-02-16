@@ -8,11 +8,12 @@ import { logAudit } from '@/lib/audit';
 // GET /api/v1/cohorts/[id] - Get cohort details
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: cohortId } = await params;
         const cohort = await prisma.cohort.findUnique({
-            where: { id: params.id },
+            where: { id: cohortId },
             include: {
                 program: { select: { id: true, name: true, slug: true } },
                 students: {
@@ -40,7 +41,7 @@ export async function GET(
 export const PUT = withAuth(
     async (req: NextRequest, ctx, user) => {
         try {
-            const id = ctx.params.id;
+            const { id } = await ctx.params;
             const body = await req.json();
             const parsed = cohortUpdateSchema.safeParse(body);
 
@@ -59,24 +60,25 @@ export const PUT = withAuth(
                     ...parsed.data,
                     startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : undefined,
                     endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : undefined,
+                    enrollmentDeadline: parsed.data.enrollmentDeadline ? new Date(parsed.data.enrollmentDeadline) : undefined,
                 },
             });
 
-            await logAudit(user.id, 'COHORT_UPDATED', 'Cohort', id, JSON.stringify(parsed.data));
+            await logAudit(user.id, 'COHORT_UPDATED', 'Cohort', id, parsed.data as Record<string, unknown>);
 
             return apiSuccess(updatedCohort);
         } catch (error) {
             return handleApiError(error);
         }
     },
-    ['ADMIN', 'INSTRUCTOR', 'PROGRAM_MANAGER']
+    ['ADMIN', 'INSTRUCTOR', 'ADMIN']
 );
 
 // DELETE /api/v1/cohorts/[id] - Delete cohort
 export const DELETE = withAuth(
     async (req: NextRequest, ctx, user) => {
         try {
-            const id = ctx.params.id;
+            const { id } = await ctx.params;
 
             const cohort = await prisma.cohort.findUnique({
                 where: { id },

@@ -8,11 +8,12 @@ import { logAudit } from '@/lib/audit';
 // GET /api/v1/mentors/[id] - Get mentor details
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: mentorId } = await params;
         const mentor = await prisma.mentorProfile.findUnique({
-            where: { id: params.id },
+            where: { id: mentorId },
             include: {
                 user: { select: { id: true, name: true, email: true, avatarUrl: true, createdAt: true } },
                 cohorts: {
@@ -42,7 +43,7 @@ export async function GET(
 export const PUT = withAuth(
     async (req: NextRequest, ctx, user) => {
         try {
-            const id = ctx.params.id;
+            const { id } = await ctx.params;
             const body = await req.json();
             const parsed = mentorProfileUpdateSchema.safeParse(body);
 
@@ -60,7 +61,7 @@ export const PUT = withAuth(
                 data: parsed.data,
             });
 
-            await logAudit(user.id, 'MENTOR_UPDATED', 'MentorProfile', id, JSON.stringify(parsed.data));
+            await logAudit(user.id, 'MENTOR_UPDATED', 'MentorProfile', id, parsed.data as Record<string, unknown>);
 
             return apiSuccess(updatedMentor);
         } catch (error) {
@@ -74,7 +75,7 @@ export const PUT = withAuth(
 export const DELETE = withAuth(
     async (req: NextRequest, ctx, user) => {
         try {
-            const id = ctx.params.id;
+            const { id } = await ctx.params;
 
             // Soft delete or status update?
             // Usually we mark as INACTIVE or SUSPENDED.

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import {
@@ -22,195 +22,63 @@ import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { PageName } from '@/types';
+import { apiClient } from '@/lib/api-client';
 
-// Mock Data
-const initialMentors: Mentor[] = [
-    {
-        id: 'M-001',
-        name: 'Sarah Chen',
-        email: 'sarah.chen@designient.com',
-        status: 'Active',
-        assignedCohorts: [
-            {
-                id: 'C-2024-001',
-                name: 'Spring 2024 Design Systems',
-                status: 'Active'
-            },
-            {
-                id: 'C-2023-012',
-                name: 'Winter 2023 Advanced UI',
-                status: 'Completed'
-            }
-        ],
-        lastActive: '2 hours ago',
-        joinDate: 'Jan 15, 2023',
-        specialty: 'Design Systems',
-        bio: 'Senior Design Lead with 10+ years of experience in building scalable design systems for enterprise products.',
-        maxCohorts: 3,
-        rating: 4.9,
-        totalReviews: 24,
-        totalStudentsMentored: 45,
-        availabilityStatus: 'Available'
-    },
-    {
-        id: 'M-002',
-        name: 'Mike Ross',
-        email: 'mike.ross@designient.com',
-        status: 'Active',
-        assignedCohorts: [
-            {
-                id: 'C-2024-001',
-                name: 'Spring 2024 Design Systems',
-                status: 'Active'
-            },
-            {
-                id: 'C-2024-004',
-                name: 'Summer 2024 Interaction',
-                status: 'Upcoming'
-            }
-        ],
-        lastActive: '1 day ago',
-        joinDate: 'Mar 20, 2023',
-        specialty: 'Product Design',
-        bio: 'Product Designer focused on user-centered design and rapid prototyping methodologies.',
-        maxCohorts: 3,
-        rating: 4.8,
-        totalReviews: 18,
-        totalStudentsMentored: 32,
-        availabilityStatus: 'Limited'
-    },
-    {
-        id: 'M-003',
-        name: 'Alex Kim',
-        email: 'alex.kim@designient.com',
-        status: 'Active',
-        assignedCohorts: [
-            {
-                id: 'C-2024-002',
-                name: 'Winter 2024 Product Strategy',
-                status: 'Active'
-            }
-        ],
-        lastActive: '4 hours ago',
-        joinDate: 'Jun 10, 2023',
-        specialty: 'UX Strategy',
-        bio: 'UX Strategist specializing in research-driven design and product strategy.',
-        maxCohorts: 2,
-        rating: 4.7,
-        totalReviews: 12,
-        totalStudentsMentored: 20,
-        availabilityStatus: 'Available'
-    },
-    {
-        id: 'M-004',
-        name: 'Jessica Lee',
-        email: 'jessica.lee@designient.com',
-        status: 'Active',
-        assignedCohorts: [
-            {
-                id: 'C-2024-005',
-                name: 'Spring 2024 Career Prep',
-                status: 'Active'
-            },
-            {
-                id: 'C-2024-003',
-                name: 'Spring 2024 Foundations',
-                status: 'Upcoming'
-            }
-        ],
-        lastActive: '3 hours ago',
-        joinDate: 'Aug 5, 2023',
-        specialty: 'Career Development',
-        bio: 'Design Manager helping designers navigate their career paths and build leadership skills.',
-        maxCohorts: 3,
-        rating: 5.0,
-        totalReviews: 30,
-        totalStudentsMentored: 55,
-        availabilityStatus: 'Unavailable'
-    },
-    {
-        id: 'M-005',
-        name: 'David Park',
-        email: 'david.park@designient.com',
-        status: 'Active',
-        assignedCohorts: [
-            {
-                id: 'C-2024-004',
-                name: 'Summer 2024 Interaction',
-                status: 'Upcoming'
-            },
-            {
-                id: 'C-2024-002',
-                name: 'Winter 2024 Product Strategy',
-                status: 'Active'
-            }
-        ],
-        lastActive: '6 hours ago',
-        joinDate: 'Sep 12, 2023',
-        specialty: 'UI Design',
-        bio: 'UI Designer with expertise in visual design, motion, and micro-interactions.',
-        maxCohorts: 3,
-        rating: 4.6,
-        totalReviews: 15,
-        totalStudentsMentored: 28,
-        availabilityStatus: 'Available'
-    },
-    {
-        id: 'M-006',
-        name: 'Emily White',
-        email: 'emily.white@designient.com',
-        status: 'Active',
-        assignedCohorts: [
-            {
-                id: 'C-2024-003',
-                name: 'Spring 2024 Foundations',
-                status: 'Upcoming'
-            }
-        ],
-        lastActive: '1 day ago',
-        joinDate: 'Oct 1, 2023',
-        specialty: 'UX Research',
-        bio: 'UX Researcher passionate about understanding user behavior and translating insights into design decisions.',
-        maxCohorts: 2,
-        rating: 4.9,
-        totalReviews: 22,
-        totalStudentsMentored: 40,
-        availabilityStatus: 'Limited'
-    },
-    {
-        id: 'M-007',
-        name: 'Tom Wilson',
-        email: 'tom.wilson@designient.com',
-        status: 'Inactive',
-        assignedCohorts: [],
-        lastActive: '2 weeks ago',
-        joinDate: 'Feb 28, 2023',
-        specialty: 'Design Systems',
-        bio: 'Former Design Lead, currently on sabbatical.',
-        maxCohorts: 3,
-        rating: 4.5,
-        totalReviews: 45,
-        totalStudentsMentored: 80,
-        availabilityStatus: 'Unavailable'
-    },
-    {
-        id: 'M-008',
-        name: 'Lisa Wang',
-        email: 'lisa.wang@designient.com',
-        status: 'Inactive',
-        assignedCohorts: [],
-        lastActive: '1 month ago',
-        joinDate: 'Apr 15, 2023',
-        specialty: 'UX Research',
-        maxCohorts: 2,
-        rating: 4.7,
-        totalReviews: 35,
-        totalStudentsMentored: 60,
-        availabilityStatus: 'Unavailable'
-    }
-];
+interface ApiMentor {
+    id: string;
+    userId: string;
+    name: string;
+    email: string;
+    avatarUrl?: string;
+    specialization?: string;
+    status: string;
+    cohortCount?: number;
+    maxCohorts?: number;
+    rating?: number;
+    bio?: string;
+    phone?: string;
+    whatsappOptIn?: boolean;
+    cohorts?: Array<{ id: string; name: string; status: string }>;
+    joinDate?: string;
+}
+
+function transformMentor(raw: ApiMentor): Mentor {
+    const statusMap: Record<string, Mentor['status']> = {
+        'ACTIVE': 'Active',
+        'INACTIVE': 'Inactive',
+        'Active': 'Active',
+        'Inactive': 'Inactive',
+    };
+
+    const assignedCohorts: AssignedCohort[] = (raw.cohorts || []).map(c => ({
+        id: c.id,
+        name: c.name,
+        status: (c.status as AssignedCohort['status']) || 'Active',
+    }));
+
+    return {
+        id: raw.id,
+        name: raw.name || '',
+        email: raw.email || '',
+        phone: raw.phone,
+        whatsappOptIn: raw.whatsappOptIn,
+        status: statusMap[raw.status] || 'Active',
+        assignedCohorts,
+        lastActive: '',
+        joinDate: raw.joinDate
+            ? new Date(raw.joinDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : '',
+        specialty: raw.specialization || '',
+        bio: raw.bio,
+        maxCohorts: raw.maxCohorts ?? 3,
+        rating: raw.rating ?? 0,
+        totalReviews: 0,
+        totalStudentsMentored: 0,
+        availabilityStatus: (raw.cohortCount ?? 0) >= (raw.maxCohorts ?? 3) ? 'Unavailable' : 'Available',
+    };
+}
 
 type DrawerMode = 'view' | 'create' | 'edit';
 
@@ -237,7 +105,8 @@ const valueToSpecialty: Record<string, string> = {
 export default function MentorsPage() {
     const router = useRouter();
     const { toast } = useToast();
-    const [mentors, setMentors] = useState<Mentor[]>(initialMentors);
+    const [mentors, setMentors] = useState<Mentor[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<MentorStatus>('All');
     const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null);
@@ -248,6 +117,27 @@ export default function MentorsPage() {
     // Pagination State
     const [page, setPage] = useState(1);
     const itemsPerPage = 10;
+
+    const fetchMentors = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const response = await apiClient.get<{ mentors: ApiMentor[] }>('/api/v1/mentors?limit=50');
+            setMentors(response.mentors.map(transformMentor));
+        } catch (error) {
+            console.error('Failed to fetch mentors:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to load mentors. Please try again.',
+                variant: 'error'
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    }, [toast]);
+
+    useEffect(() => {
+        fetchMentors();
+    }, [fetchMentors]);
 
     const filteredMentors = useMemo(() => {
         return mentors.filter((mentor) => {
@@ -312,39 +202,55 @@ export default function MentorsPage() {
         });
     };
 
-    const handleDeactivateMentor = () => {
+    const handleDeactivateMentor = async () => {
         if (!selectedMentor) return;
-        const updatedMentor: Mentor = {
-            ...selectedMentor,
-            status: 'Inactive',
-            assignedCohorts: []
-        };
-        setSelectedMentor(updatedMentor);
-        setMentors((prev) =>
-            prev.map((m) => (m.id === selectedMentor.id ? updatedMentor : m))
-        );
-        toast({
-            title: 'Mentor Deactivated',
-            description: `${selectedMentor.name} is now inactive.`,
-            variant: 'warning'
-        });
+        try {
+            await apiClient.delete(`/api/v1/mentors/${selectedMentor.id}`);
+            const updatedMentor: Mentor = {
+                ...selectedMentor,
+                status: 'Inactive',
+                assignedCohorts: []
+            };
+            setSelectedMentor(updatedMentor);
+            setMentors((prev) =>
+                prev.map((m) => (m.id === selectedMentor.id ? updatedMentor : m))
+            );
+            toast({
+                title: 'Mentor Deactivated',
+                description: `${selectedMentor.name} is now inactive.`,
+                variant: 'warning'
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to deactivate mentor.',
+                variant: 'error'
+            });
+        }
     };
 
-    const handleDeleteMentor = () => {
+    const handleDeleteMentor = async () => {
         if (!selectedMentor) return;
-        setMentors((prev) => prev.filter((m) => m.id !== selectedMentor.id));
-        toast({
-            title: 'Mentor Deleted',
-            description: `${selectedMentor.name} has been permanently deleted.`,
-            variant: 'success'
-        });
-        handleCloseDrawer();
+        try {
+            await apiClient.delete(`/api/v1/mentors/${selectedMentor.id}`);
+            setMentors((prev) => prev.filter((m) => m.id !== selectedMentor.id));
+            toast({
+                title: 'Mentor Removed',
+                description: `${selectedMentor.name} has been removed.`,
+                variant: 'success'
+            });
+            handleCloseDrawer();
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to remove mentor.',
+                variant: 'error'
+            });
+        }
     };
 
     const handleSendMessage = () => {
         if (!selectedMentor) return;
-        // For now, just show toast as we don't have communication flow fully hooked up
-        // In real app, this would use onComposeMessage prop if available
         router.push('/communications');
         toast({
             title: 'Opening Communications',
@@ -353,32 +259,22 @@ export default function MentorsPage() {
         });
     };
 
-    const handleFormSubmit = (data: MentorFormData) => {
+    const handleFormSubmit = async (data: MentorFormData) => {
         setIsSubmitting(true);
-        setTimeout(() => {
+        try {
             if (drawerMode === 'create') {
-                const newMentor: Mentor = {
-                    id: `M-${String(mentors.length + 1).padStart(3, '0')}`,
-                    name: data.name,
+                const payload = {
                     email: data.email,
+                    name: data.name,
                     phone: data.phone || undefined,
                     whatsappOptIn: data.whatsappOptIn,
-                    status: data.status,
-                    specialty: valueToSpecialty[data.specialty] || data.specialty,
+                    specialization: valueToSpecialty[data.specialty] || data.specialty,
                     maxCohorts: data.maxCohorts,
                     bio: data.bio || undefined,
-                    assignedCohorts: [],
-                    lastActive: 'Just now',
-                    joinDate: new Date().toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                    }),
-                    rating: 0,
-                    totalReviews: 0,
-                    totalStudentsMentored: 0,
-                    availabilityStatus: 'Available'
+                    status: data.status === 'Active' ? 'ACTIVE' : 'INACTIVE',
                 };
+                const created = await apiClient.post<ApiMentor>('/api/v1/mentors', payload);
+                const newMentor = transformMentor(created);
                 setMentors((prev) => [newMentor, ...prev]);
                 toast({
                     title: 'Mentor Added',
@@ -386,6 +282,13 @@ export default function MentorsPage() {
                     variant: 'success'
                 });
             } else if (drawerMode === 'edit' && selectedMentor) {
+                const payload = {
+                    specialization: valueToSpecialty[data.specialty] || data.specialty,
+                    maxCohorts: data.maxCohorts,
+                    bio: data.bio || undefined,
+                    status: data.status === 'Active' ? 'ACTIVE' : 'INACTIVE',
+                };
+                await apiClient.put(`/api/v1/mentors/${selectedMentor.id}`, payload);
                 const updatedMentor: Mentor = {
                     ...selectedMentor,
                     name: data.name,
@@ -407,9 +310,17 @@ export default function MentorsPage() {
                     variant: 'success'
                 });
             }
-            setIsSubmitting(false);
             handleCloseDrawer();
-        }, 500);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : `Failed to ${drawerMode} mentor.`;
+            toast({
+                title: 'Error',
+                description: message,
+                variant: 'error'
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const mentorToFormData = (mentor: Mentor): Partial<MentorFormData> => ({
@@ -472,19 +383,27 @@ export default function MentorsPage() {
                 </div>
 
                 {/* Main Table */}
-                <MentorsTable
-                    mentors={paginatedMentors}
-                    onMentorClick={handleMentorClick}
-                />
+                {isLoading ? (
+                    <div className="flex justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                ) : (
+                    <MentorsTable
+                        mentors={paginatedMentors}
+                        onMentorClick={handleMentorClick}
+                    />
+                )}
 
                 {/* Pagination */}
-                <Pagination
-                    currentPage={page}
-                    totalPages={totalPages}
-                    totalItems={filteredMentors.length}
-                    itemsPerPage={itemsPerPage}
-                    onPageChange={setPage}
-                />
+                {!isLoading && (
+                    <Pagination
+                        currentPage={page}
+                        totalPages={totalPages}
+                        totalItems={filteredMentors.length}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={setPage}
+                    />
+                )}
 
                 {/* Drawer */}
                 <Drawer

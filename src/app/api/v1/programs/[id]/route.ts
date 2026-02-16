@@ -8,11 +8,12 @@ import { logAudit } from '@/lib/audit';
 // GET /api/v1/programs/[id] - Get program details
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: programId } = await params;
         const program = await prisma.program.findUnique({
-            where: { id: params.id },
+            where: { id: programId },
             include: {
                 cohorts: {
                     take: 5,
@@ -36,7 +37,7 @@ export async function GET(
 export const PUT = withAuth(
     async (req: NextRequest, ctx, user) => {
         try {
-            const id = ctx.params.id;
+            const { id } = await ctx.params;
             const body = await req.json();
             const parsed = programUpdateSchema.safeParse(body);
 
@@ -72,7 +73,7 @@ export const PUT = withAuth(
                 },
             });
 
-            await logAudit(user.id, 'PROGRAM_UPDATED', 'Program', id, JSON.stringify(parsed.data));
+            await logAudit(user.id, 'PROGRAM_UPDATED', 'Program', id, parsed.data as Record<string, unknown>);
 
             return apiSuccess(updatedProgram);
         } catch (error) {
@@ -86,7 +87,7 @@ export const PUT = withAuth(
 export const DELETE = withAuth(
     async (req: NextRequest, ctx, user) => {
         try {
-            const id = ctx.params.id;
+            const { id } = await ctx.params;
 
             // Check if program exists and has no active cohorts
             const program = await prisma.program.findUnique({
