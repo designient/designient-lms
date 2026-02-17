@@ -20,15 +20,27 @@ export const GET = withAuth(
 
             const cohortIds = mentor?.cohorts.map(c => c.id) || [];
 
-            // Build filter
+            // Build filter — handle both module-linked and direct course-linked assignments
             const where: Record<string, unknown> = {
-                assignment: {
-                    module: {
-                        course: {
-                            cohortCourses: { some: { cohortId: { in: cohortIds } } },
+                OR: [
+                    {
+                        assignment: {
+                            module: {
+                                course: {
+                                    cohortCourses: { some: { cohortId: { in: cohortIds } } },
+                                },
+                            },
                         },
                     },
-                },
+                    {
+                        assignment: {
+                            moduleId: null,
+                            course: {
+                                cohortCourses: { some: { cohortId: { in: cohortIds } } },
+                            },
+                        },
+                    },
+                ],
             };
 
             if (status) {

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '@/lib/api-client';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { DrawerSection, DrawerDivider } from '../ui/Drawer';
@@ -23,7 +24,9 @@ import {
     Copy,
     Trash2,
     CheckCircle,
-    RotateCcw
+    RotateCcw,
+    Plus,
+    Video
 } from 'lucide-react';
 import { Cohort } from '../../types';
 
@@ -121,6 +124,55 @@ export function CohortDrawer({
     const [showAddCourse, setShowAddCourse] = useState(false);
     const [isMentorAssigning, setIsMentorAssigning] = useState(false);
     const [isCourseAssigning, setIsCourseAssigning] = useState(false);
+
+    // Sessions state
+    interface SessionItem {
+        id: string;
+        title: string;
+        courseTitle: string;
+        courseId: string;
+        scheduledAt: string;
+        duration: number;
+        attendanceCount: number;
+        studentCount: number;
+    }
+    const [sessions, setSessions] = useState<SessionItem[]>([]);
+    const [showCreateSession, setShowCreateSession] = useState(false);
+    const [sessionForm, setSessionForm] = useState({ title: '', courseId: '', scheduledAt: '', duration: 60 });
+    const [isSessionSubmitting, setIsSessionSubmitting] = useState(false);
+
+    const fetchSessions = useCallback(async () => {
+        try {
+            const res = await apiClient.get<{ sessions: SessionItem[] }>(`/api/v1/cohorts/${cohort.id}/sessions`);
+            setSessions(res.sessions);
+        } catch { setSessions([]); }
+    }, [cohort.id]);
+
+    useEffect(() => { fetchSessions(); }, [fetchSessions]);
+
+    const handleCreateSession = async () => {
+        if (!sessionForm.title || !sessionForm.courseId || !sessionForm.scheduledAt) return;
+        setIsSessionSubmitting(true);
+        try {
+            await apiClient.post(`/api/v1/cohorts/${cohort.id}/sessions`, sessionForm);
+            await fetchSessions();
+            setShowCreateSession(false);
+            setSessionForm({ title: '', courseId: '', scheduledAt: '', duration: 60 });
+        } catch (err) {
+            console.error('Failed to create session:', err);
+        } finally {
+            setIsSessionSubmitting(false);
+        }
+    };
+
+    const handleDeleteSession = async (sessionId: string) => {
+        try {
+            await apiClient.delete(`/api/v1/sessions/${sessionId}`);
+            setSessions(prev => prev.filter(s => s.id !== sessionId));
+        } catch (err) {
+            console.error('Failed to delete session:', err);
+        }
+    };
 
     const handleAssignMentor = async (mentorId: string) => {
         if (onAssignMentor) {
@@ -507,6 +559,125 @@ export function CohortDrawer({
                                 </div>
                             )}
                         </>
+                    )}
+                </div>
+            </DrawerSection>
+
+            <DrawerDivider />
+
+            {/* Class Sessions Section */}
+            <DrawerSection title="Class Sessions">
+                <div className="space-y-3">
+                    {sessions.length > 0 ? (
+                        <div className="space-y-2">
+                            {sessions.slice(0, 5).map((session) => (
+                                <div
+                                    key={session.id}
+                                    className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/40 transition-colors group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-500/20 to-violet-500/10 flex items-center justify-center">
+                                            <Video className="h-3.5 w-3.5 text-violet-600" />
+                                        </div>
+                                        <div>
+                                            <span className="text-sm font-medium text-foreground block">
+                                                {session.title}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {session.courseTitle} · {new Date(session.scheduledAt).toLocaleDateString()} · {session.duration}min
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">
+                                            {session.attendanceCount}/{session.studentCount}
+                                        </span>
+                                        <button
+                                            onClick={() => handleDeleteSession(session.id)}
+                                            className="p-0.5 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {sessions.length > 5 && (
+                                <p className="text-xs text-muted-foreground text-center py-1">
+                                    +{sessions.length - 5} more sessions
+                                </p>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground italic px-3">
+                            No class sessions scheduled
+                        </p>
+                    )}
+
+                    {!showCreateSession ? (
+                        <Button
+                            onClick={() => setShowCreateSession(true)}
+                            className="w-full justify-start gap-3"
+                            variant="outline"
+                            size="sm"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Schedule Session
+                        </Button>
+                    ) : (
+                        <div className="p-3 rounded-lg bg-muted/30 border border-border/50 space-y-2">
+                            <input
+                                type="text"
+                                placeholder="Session title"
+                                value={sessionForm.title}
+                                onChange={(e) => setSessionForm(prev => ({ ...prev, title: e.target.value }))}
+                                className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <select
+                                value={sessionForm.courseId}
+                                onChange={(e) => setSessionForm(prev => ({ ...prev, courseId: e.target.value }))}
+                                className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            >
+                                <option value="">Select course</option>
+                                {cohortCourses.map(c => (
+                                    <option key={c.id} value={c.id}>{c.title}</option>
+                                ))}
+                            </select>
+                            <input
+                                type="datetime-local"
+                                value={sessionForm.scheduledAt}
+                                onChange={(e) => setSessionForm(prev => ({ ...prev, scheduledAt: e.target.value }))}
+                                className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min="15"
+                                    max="480"
+                                    value={sessionForm.duration}
+                                    onChange={(e) => setSessionForm(prev => ({ ...prev, duration: parseInt(e.target.value) || 60 }))}
+                                    className="w-24 rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                />
+                                <span className="text-xs text-muted-foreground">minutes</span>
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                                <Button
+                                    onClick={handleCreateSession}
+                                    size="sm"
+                                    disabled={isSessionSubmitting || !sessionForm.title || !sessionForm.courseId || !sessionForm.scheduledAt}
+                                    className="flex-1"
+                                >
+                                    {isSessionSubmitting ? 'Creating...' : 'Create Session'}
+                                </Button>
+                                <Button
+                                    onClick={() => setShowCreateSession(false)}
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1"
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        </div>
                     )}
                 </div>
             </DrawerSection>

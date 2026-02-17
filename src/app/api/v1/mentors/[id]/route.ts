@@ -56,9 +56,19 @@ export const PUT = withAuth(
                 return apiError('Mentor not found', 404, 'NOT_FOUND');
             }
 
+            const { cohortIds, ...updateData } = parsed.data;
+
             const updatedMentor = await prisma.mentorProfile.update({
                 where: { id },
-                data: parsed.data,
+                data: {
+                    ...updateData,
+                    cohorts: cohortIds ? {
+                        set: cohortIds.map((cid) => ({ id: cid })),
+                    } : undefined,
+                },
+                include: {
+                    cohorts: { select: { id: true, name: true, status: true } },
+                }
             });
 
             await logAudit(user.id, 'MENTOR_UPDATED', 'MentorProfile', id, parsed.data as Record<string, unknown>);
@@ -71,29 +81,41 @@ export const PUT = withAuth(
     ['ADMIN']
 );
 
-// DELETE /api/v1/mentors/[id] - Deactivate/Delete mentor
+// DELETE /api/v1/mentors/[id] - Permanently delete mentor
 export const DELETE = withAuth(
     async (req: NextRequest, ctx, user) => {
         try {
             const { id } = await ctx.params;
 
-            // Soft delete or status update?
-            // Usually we mark as INACTIVE or SUSPENDED.
-            // If filtering for "Active", we just update status.
+            const mentor = await prisma.mentorProfile.findUnique({
+                where: { id },
+                select: { userId: true }
+            });
 
-            const mentor = await prisma.mentorProfile.findUnique({ where: { id } });
             if (!mentor) {
                 return apiError('Mentor not found', 404, 'NOT_FOUND');
             }
 
-            const updatedMentor = await prisma.mentorProfile.update({
-                where: { id },
-                data: { status: 'INACTIVE' } // Or SUSPENDED
-            });
+            try {
+                // Attempt hard delete of User (cascades to MentorProfile)
+                await prisma.user.delete({
+                    where: { id: mentor.userId }
+                });
 
-            await logAudit(user.id, 'MENTOR_DEACTIVATED', 'MentorProfile', id);
+                await logAudit(user.id, 'MENTOR_DELETED', 'User', mentor.userId);
 
-            return apiSuccess({ message: 'Mentor deactivated successfully' });
+                return apiSuccess({ message: 'Mentor permanently deleted' });
+            } catch (err: any) {
+                // Check for Foreign Key constraint violation (P2003)
+                if (err.code === 'P2003') {
+                    return apiError(
+                        'Cannot delete mentor because they have associated content (Courses, Assignments, etc.). Please reassign or delete these resources first.',
+                        409,
+                        'CONSTRAINT_VIOLATION'
+                    );
+                }
+                throw err;
+            }
         } catch (error) {
             return handleApiError(error);
         }

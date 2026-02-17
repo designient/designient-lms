@@ -158,10 +158,41 @@ export default function StudentsPage() {
         setPage(1);
     }, [searchQuery, activeFilter, cohortFilter]);
 
-    const handleStudentClick = (student: Student) => {
+    const handleStudentClick = async (student: Student) => {
         setSelectedStudent(student);
         setDrawerMode('view');
         setIsDrawerOpen(true);
+
+        // Load existing notes from API
+        try {
+            const res = await apiClient.get<{
+                notes: Array<{
+                    id: string;
+                    authorId: string;
+                    authorName: string;
+                    authorRole: string;
+                    content: string;
+                    createdAt: string;
+                }>;
+            }>(`/api/v1/students/${student.id}/notes`);
+            const notes = res.notes.map(n => ({
+                id: n.id,
+                authorId: n.authorId,
+                authorName: n.authorName,
+                authorRole: n.authorRole as 'Admin' | 'Mentor',
+                content: n.content,
+                createdAt: new Date(n.createdAt).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                }),
+            }));
+            const hydrated = { ...student, notes };
+            setSelectedStudent(hydrated);
+            setStudents(prev => prev.map(s => s.id === student.id ? hydrated : s));
+        } catch {
+            // Notes loading failed silently; student still viewable
+        }
     };
 
     const handleAddStudent = () => {
@@ -241,32 +272,34 @@ export default function StudentsPage() {
         }
     };
 
-    const handleResendInvite = () => {
+    const handleResendInvite = async () => {
         if (!selectedStudent) return;
-        toast({
-            title: 'Invitation Sent',
-            description: `Invitation email resent to ${selectedStudent.email}`,
-            variant: 'success',
-        });
+        try {
+            await apiClient.post(`/api/v1/students/${selectedStudent.id}/resend-invite`, {});
+            toast({
+                title: 'Invitation Sent',
+                description: `Invitation email resent to ${selectedStudent.email}`,
+                variant: 'success',
+            });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to resend invite.';
+            toast({
+                title: 'Error',
+                description: message,
+                variant: 'error',
+            });
+        }
     };
 
     const handleAssignMentor = async (mentorId: string) => {
         if (!selectedStudent) return;
         try {
             await apiClient.put(`/api/v1/students/${selectedStudent.id}`, {
-                mentorId: mentorId,
+                mentorId: mentorId || null,
             });
-            const updatedStudent: Student = {
-                ...selectedStudent,
-                mentorId: mentorId,
-            };
-            setSelectedStudent(updatedStudent);
-            setStudents((prev) =>
-                prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
-            );
             toast({
                 title: 'Mentor Assigned',
-                description: `Mentor has been assigned to ${selectedStudent.name}`,
+                description: `Mentor has been assigned to ${selectedStudent.name}.`,
                 variant: 'success',
             });
         } catch (error) {
@@ -306,37 +339,55 @@ export default function StudentsPage() {
         }
     };
 
-    const handleAddNote = (content: string) => {
+    const handleAddNote = async (content: string) => {
         if (!selectedStudent) return;
-        const newNote: StudentNote = {
-            id: `N-${Date.now()}`,
-            authorId: 'A-001',
-            authorName: 'Super Admin',
-            authorRole: 'Admin',
-            content: content,
-            createdAt: new Date().toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-            }),
-        };
-        const updatedStudent: Student = {
-            ...selectedStudent,
-            notes: [newNote, ...selectedStudent.notes],
-        };
-        setSelectedStudent(updatedStudent);
-        setStudents((prev) =>
-            prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
-        );
-        toast({
-            title: 'Note Added',
-            description: 'Your note has been added to the student record.',
-            variant: 'success',
-        });
+        try {
+            const note = await apiClient.post<{
+                id: string;
+                authorId: string;
+                authorName: string;
+                authorRole: string;
+                content: string;
+                createdAt: string;
+            }>(`/api/v1/students/${selectedStudent.id}/notes`, { content });
+            const newNote: StudentNote = {
+                id: note.id,
+                authorId: note.authorId,
+                authorName: note.authorName,
+                authorRole: note.authorRole as 'Admin' | 'Mentor',
+                content: note.content,
+                createdAt: new Date(note.createdAt).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                }),
+            };
+            const updatedStudent: Student = {
+                ...selectedStudent,
+                notes: [newNote, ...selectedStudent.notes],
+            };
+            setSelectedStudent(updatedStudent);
+            setStudents((prev) =>
+                prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
+            );
+            toast({
+                title: 'Note Added',
+                description: 'Your note has been added to the student record.',
+                variant: 'success',
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to add note.',
+                variant: 'error',
+            });
+        }
     };
 
     const handleUpdatePayment = (status: Student['paymentStatus']) => {
         if (!selectedStudent) return;
+        // Note: Payment fields do not exist in the database schema.
+        // This is a UI-only update for display purposes.
         const updatedStudent: Student = {
             ...selectedStudent,
             paymentStatus: status,
@@ -347,8 +398,8 @@ export default function StudentsPage() {
         );
         toast({
             title: 'Payment Updated',
-            description: `Payment status changed to ${status}`,
-            variant: 'success',
+            description: `Payment status changed to ${status} (note: not persisted to database)`,
+            variant: 'warning',
         });
     };
 
@@ -436,18 +487,43 @@ export default function StudentsPage() {
     });
 
     const handleExport = () => {
-        toast({
-            title: 'Export Started',
-            description: 'Your CSV download will begin shortly.',
-            variant: 'info',
-        });
-        setTimeout(() => {
+        try {
+            const headers = ['Name', 'Email', 'Phone', 'Status', 'Cohort', 'Enrollment Date'];
+            const rows = filteredStudents.map(s => [
+                s.name,
+                s.email,
+                s.phone || '',
+                s.status,
+                s.cohortName || '',
+                s.enrollmentDate || '',
+            ]);
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(',')),
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `students-export-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
             toast({
                 title: 'Export Complete',
-                description: 'Students list has been downloaded.',
+                description: `${filteredStudents.length} students exported to CSV.`,
                 variant: 'success',
             });
-        }, 1500);
+        } catch (error) {
+            toast({
+                title: 'Export Failed',
+                description: 'Failed to generate CSV file.',
+                variant: 'error',
+            });
+        }
     };
 
     const getDrawerTitle = () => {

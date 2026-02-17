@@ -188,26 +188,48 @@ export default function MentorsPage() {
         setDrawerMode('edit');
     };
 
-    const handleUpdateMentor = (updatedMentor: Mentor) => {
-        setSelectedMentor(updatedMentor);
-        setMentors((prev) =>
-            prev.map((m) => (m.id === updatedMentor.id ? updatedMentor : m))
-        );
-        toast({
-            title: 'Mentor Updated',
-            description: `${updatedMentor.name}'s profile has been updated.`,
-            variant: 'success'
-        });
+    const handleUpdateMentor = async (updatedMentor: Mentor) => {
+        try {
+            // Prepare payload for API
+            const payload = {
+                specialization: updatedMentor.specialty,
+                bio: updatedMentor.bio,
+                maxCohorts: updatedMentor.maxCohorts,
+                status: updatedMentor.status === 'Active' ? 'ACTIVE' : 'INACTIVE',
+                cohortIds: updatedMentor.assignedCohorts.map(c => c.id)
+            };
+
+            await apiClient.put(`/api/v1/mentors/${updatedMentor.id}`, payload);
+
+            setSelectedMentor(updatedMentor);
+            setMentors((prev) =>
+                prev.map((m) => (m.id === updatedMentor.id ? updatedMentor : m))
+            );
+            toast({
+                title: 'Mentor Updated',
+                description: `${updatedMentor.name}'s profile has been updated.`,
+                variant: 'success'
+            });
+        } catch (error) {
+            console.error('Failed to update mentor:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to save changes. Please try again.',
+                variant: 'error'
+            });
+        }
     };
 
     const handleDeactivateMentor = async () => {
         if (!selectedMentor) return;
         try {
-            await apiClient.delete(`/api/v1/mentors/${selectedMentor.id}`);
+            await apiClient.put(`/api/v1/mentors/${selectedMentor.id}`, {
+                status: 'INACTIVE',
+            });
             const updatedMentor: Mentor = {
                 ...selectedMentor,
                 status: 'Inactive',
-                assignedCohorts: []
+                assignedCohorts: selectedMentor.assignedCohorts,
             };
             setSelectedMentor(updatedMentor);
             setMentors((prev) =>
@@ -287,6 +309,7 @@ export default function MentorsPage() {
                     maxCohorts: data.maxCohorts,
                     bio: data.bio || undefined,
                     status: data.status === 'Active' ? 'ACTIVE' : 'INACTIVE',
+                    cohortIds: selectedMentor.assignedCohorts.map(c => c.id),
                 };
                 await apiClient.put(`/api/v1/mentors/${selectedMentor.id}`, payload);
                 const updatedMentor: Mentor = {

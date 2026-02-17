@@ -2,7 +2,9 @@
 
 import React from 'react';
 import { User, Settings, LogOut, HelpCircle, Sun, Moon, Monitor } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
 import { useTheme, type Theme } from '@/hooks/useTheme';
+import { useToast } from '@/components/ui/Toast';
 import type { PageName } from '@/types';
 
 interface UserMenuProps {
@@ -13,11 +15,30 @@ interface UserMenuProps {
 
 export function UserMenu({ open, onClose, onNavigate }: UserMenuProps) {
     const { theme, setTheme, resolvedTheme } = useTheme();
+    const { data: session } = useSession();
+    const { toast } = useToast();
 
     if (!open) return null;
 
     const handleNavigate = (page: PageName) => {
         onNavigate(page);
+        onClose();
+    };
+
+    const handleLogout = () => {
+        signOut({ callbackUrl: '/login' });
+        onClose();
+    };
+
+
+
+    const handleHelp = () => {
+        // Placeholder for Help & Support
+        toast({
+            title: 'Help & Support',
+            description: 'For support, please contact the administrator.',
+            variant: 'info',
+        });
         onClose();
     };
 
@@ -33,8 +54,12 @@ export function UserMenu({ open, onClose, onNavigate }: UserMenuProps) {
             <div className="absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-border/50 bg-card shadow-xl z-40">
                 {/* User Info */}
                 <div className="p-2.5 border-b border-border/50">
-                    <p className="text-[13px] font-medium text-foreground">Super Admin</p>
-                    <p className="text-[11px] text-muted-foreground truncate">admin@designient.com</p>
+                    <p className="text-[13px] font-medium text-foreground">
+                        {session?.user?.name || 'User'}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                        {session?.user?.email || 'No email'}
+                    </p>
                 </div>
 
                 {/* Theme Selector */}
@@ -55,8 +80,8 @@ export function UserMenu({ open, onClose, onNavigate }: UserMenuProps) {
                                 key={option.value}
                                 onClick={() => setTheme(option.value)}
                                 className={`flex-1 flex items-center justify-center gap-1 px-1.5 py-1 rounded text-[10px] font-medium transition-all ${theme === option.value
-                                        ? 'bg-card text-foreground shadow-sm'
-                                        : 'text-muted-foreground hover:text-foreground'
+                                    ? 'bg-card text-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground'
                                     }`}
                             >
                                 {option.icon}
@@ -83,7 +108,7 @@ export function UserMenu({ open, onClose, onNavigate }: UserMenuProps) {
                         Settings
                     </button>
                     <button
-                        onClick={onClose}
+                        onClick={handleHelp}
                         className="w-full flex items-center gap-2 px-2 py-1.5 text-[13px] text-foreground rounded-md hover:bg-muted/60 transition-colors"
                     >
                         <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
@@ -94,7 +119,7 @@ export function UserMenu({ open, onClose, onNavigate }: UserMenuProps) {
                 {/* Logout */}
                 <div className="p-1 border-t border-border/50">
                     <button
-                        onClick={onClose}
+                        onClick={handleLogout}
                         className="w-full flex items-center gap-2 px-2 py-1.5 text-[13px] text-destructive rounded-md hover:bg-destructive/10 transition-colors"
                     >
                         <LogOut className="h-3.5 w-3.5" />

@@ -53,10 +53,14 @@ export default function MentorSubmissionsPage() {
 
     const handleGrade = async (submissionId: string) => {
         try {
-            await apiClient.put(`/api/v1/submissions/${submissionId}/grade`, {
-                grade: gradeInput,
-                feedback: feedbackInput,
-                status: 'REVIEWED',
+            const score = Number(gradeInput);
+            if (isNaN(score) || score < 0) {
+                toast({ title: 'Invalid Grade', description: 'Please enter a valid numeric score.', variant: 'error' });
+                return;
+            }
+            await apiClient.post(`/api/v1/submissions/${submissionId}/grade`, {
+                score,
+                feedback: feedbackInput || undefined,
             });
             toast({ title: 'Graded', description: 'Submission has been graded.', variant: 'success' });
             setGradingId(null);
@@ -70,11 +74,18 @@ export default function MentorSubmissionsPage() {
 
     const statusIcon = (status: string) => {
         switch (status) {
-            case 'PENDING': return <Clock className="h-3.5 w-3.5 text-amber-500" />;
-            case 'REVIEWED': return <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />;
-            case 'NEEDS_REVISION': return <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />;
+            case 'SUBMITTED': return <Clock className="h-3.5 w-3.5 text-amber-500" />;
+            case 'GRADED': return <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />;
+            case 'RESUBMITTED': return <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />;
             default: return null;
         }
+    };
+
+    const statusLabel: Record<string, string> = {
+        '': 'All',
+        'SUBMITTED': 'Pending',
+        'GRADED': 'Reviewed',
+        'RESUBMITTED': 'Resubmitted',
     };
 
     return (
@@ -86,13 +97,13 @@ export default function MentorSubmissionsPage() {
 
             {/* Status filter tabs */}
             <div className="flex gap-2">
-                {['', 'PENDING', 'REVIEWED', 'NEEDS_REVISION'].map(status => (
+                {['', 'SUBMITTED', 'GRADED', 'RESUBMITTED'].map(status => (
                     <button
                         key={status}
                         onClick={() => { setStatusFilter(status); setPage(1); }}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === status ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'}`}
                     >
-                        {status || 'All'}
+                        {statusLabel[status]}
                     </button>
                 ))}
             </div>
@@ -117,8 +128,8 @@ export default function MentorSubmissionsPage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {statusIcon(sub.status)}
-                                    <Badge variant={sub.status === 'PENDING' ? 'warning' : sub.status === 'REVIEWED' ? 'success' : 'neutral'}>
-                                        {sub.status}
+                                    <Badge variant={sub.status === 'SUBMITTED' ? 'warning' : sub.status === 'GRADED' ? 'success' : 'neutral'}>
+                                        {statusLabel[sub.status] || sub.status}
                                     </Badge>
                                 </div>
                             </div>

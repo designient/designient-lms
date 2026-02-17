@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Loader2, BookOpen } from 'lucide-react';
+import { Loader2, BookOpen, FileText, Video, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 
@@ -37,18 +37,25 @@ export default function MentorCoursesPage() {
     }
 
     // Flatten courses from all cohorts (deduplicate)
-    const courseMap = new Map<string, { course: CourseItem; cohortNames: string[] }>();
+    const courseMap = new Map<string, { course: CourseItem; cohortNames: string[]; cohortIds: string[] }>();
     cohorts.forEach(c => {
         c.courses.forEach(course => {
             const existing = courseMap.get(course.id);
             if (existing) {
                 existing.cohortNames.push(c.name);
+                existing.cohortIds.push(c.id);
             } else {
-                courseMap.set(course.id, { course, cohortNames: [c.name] });
+                courseMap.set(course.id, { course, cohortNames: [c.name], cohortIds: [c.id] });
             }
         });
     });
     const allCourses = Array.from(courseMap.values());
+
+    const actionLinks = (courseId: string, cohortId: string) => [
+        { href: `/m/materials?courseId=${courseId}`, icon: FileText, label: 'Materials' },
+        { href: `/m/recordings?courseId=${courseId}`, icon: Video, label: 'Recordings' },
+        { href: `/m/quizzes?courseId=${courseId}&cohortId=${cohortId}`, icon: ClipboardCheck, label: 'Quizzes' },
+    ];
 
     return (
         <div className="space-y-6">
@@ -64,7 +71,7 @@ export default function MentorCoursesPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {allCourses.map(({ course, cohortNames }) => (
+                    {allCourses.map(({ course, cohortNames, cohortIds }) => (
                         <div
                             key={course.id}
                             className="rounded-xl border border-border/50 bg-card p-5 space-y-3"
@@ -76,6 +83,18 @@ export default function MentorCoursesPage() {
                             <p className="text-xs text-muted-foreground">
                                 Cohorts: {cohortNames.join(', ')}
                             </p>
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                {actionLinks(course.id, cohortIds[0]).map(link => (
+                                    <Link
+                                        key={link.label}
+                                        href={link.href}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/60 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
+                                    >
+                                        <link.icon className="h-3 w-3" />
+                                        {link.label}
+                                    </Link>
+                                ))}
+                            </div>
                         </div>
                     ))}
                 </div>

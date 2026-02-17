@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Bell, Search, ChevronDown } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { useBrand } from '@/components/BrandProvider';
 import { SearchModal } from './SearchModal';
 import { NotificationsPanel } from './NotificationsPanel';
 import { UserMenu } from './UserMenu';
@@ -15,6 +17,8 @@ interface HeaderProps {
 }
 
 export function Header({ title, subtitle, onNavigate, onSelectEntity }: HeaderProps) {
+    const { data: session } = useSession();
+    const { logoUrl } = useBrand();
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -64,8 +68,8 @@ export function Header({ title, subtitle, onNavigate, onSelectEntity }: HeaderPr
                         <button
                             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
                             className={`relative rounded-md p-1.5 transition-colors duration-150 ${isNotificationsOpen
-                                    ? 'bg-muted text-foreground'
-                                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                                ? 'bg-muted text-foreground'
+                                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
                                 }`}
                         >
                             <Bell className="h-4 w-4" />
@@ -87,11 +91,17 @@ export function Header({ title, subtitle, onNavigate, onSelectEntity }: HeaderPr
                             className={`flex items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors duration-150 ${isUserMenuOpen ? 'bg-muted/60' : 'hover:bg-muted/60'
                                 }`}
                         >
-                            <div className="h-6 w-6 rounded-md bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-semibold text-primary">
-                                SA
+                            <div className="h-6 w-6 rounded-md bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-semibold text-primary overflow-hidden">
+                                {logoUrl ? (
+                                    <img src={logoUrl} alt="Brand" className="h-full w-full object-cover" />
+                                ) : (
+                                    session?.user?.name ? session.user.name.charAt(0).toUpperCase() : 'U'
+                                )}
                             </div>
                             <div className="hidden sm:block text-left">
-                                <p className="text-xs font-medium text-foreground leading-none">Super Admin</p>
+                                <p className="text-xs font-medium text-foreground leading-none">
+                                    {session?.user?.name || 'User'}
+                                </p>
                             </div>
                             <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />
                         </button>

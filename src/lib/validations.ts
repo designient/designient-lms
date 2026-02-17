@@ -121,12 +121,14 @@ export const mentorProfileSchema = z.object({
     bio: z.string().max(2000).optional(),
     maxCohorts: z.number().int().min(0).optional(),
     status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+    cohortIds: z.array(z.string()).optional(),
 });
 export const mentorProfileUpdateSchema = mentorProfileSchema.partial();
 
 // Student Profile Schemas
 export const studentProfileSchema = z.object({
     cohortId: z.string().cuid('Invalid Cohort ID').optional().nullable(),
+    mentorId: z.string().cuid('Invalid Mentor ID').optional().nullable(),
     phone: z.string().max(20).optional(),
     whatsappOptIn: z.boolean().optional(),
     status: z.enum(['INVITED', 'ACTIVE', 'FLAGGED', 'DROPPED', 'COMPLETED']).optional(),

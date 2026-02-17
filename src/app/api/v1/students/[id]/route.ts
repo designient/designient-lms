@@ -100,29 +100,32 @@ export const PUT = withAuth(
     ['ADMIN', 'INSTRUCTOR', 'ADMIN']
 );
 
-// DELETE /api/v1/students/[id] - Deactivate/Delete student
+// DELETE /api/v1/students/[id] - Permanently delete student
 export const DELETE = withAuth(
     async (req: NextRequest, ctx, user) => {
         try {
             const { id } = await ctx.params;
 
-            const student = await prisma.studentProfile.findUnique({ where: { id } });
+            const student = await prisma.studentProfile.findUnique({
+                where: { id },
+                select: { userId: true }
+            });
+
             if (!student) {
                 return apiError('Student not found', 404, 'NOT_FOUND');
             }
 
-            // Soft delete by updating status
-            const updatedStudent = await prisma.studentProfile.update({
-                where: { id },
-                data: { status: 'DROPPED' } // or FLAGGED/COMPLETED depending on intent
+            // Hard delete the User (cascades to StudentProfile, Enrollments, etc.)
+            await prisma.user.delete({
+                where: { id: student.userId }
             });
 
-            await logAudit(user.id, 'STUDENT_DROPPED', 'StudentProfile', id);
+            await logAudit(user.id, 'STUDENT_DELETED', 'User', student.userId);
 
-            return apiSuccess({ message: 'Student status updated to DROPPED' });
+            return apiSuccess({ message: 'Student permanently deleted' });
         } catch (error) {
             return handleApiError(error);
         }
     },
-    ['ADMIN', 'INSTRUCTOR', 'ADMIN']
+    ['ADMIN']
 );

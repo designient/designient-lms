@@ -1,5 +1,6 @@
-// Frontend API helper
-const API_BASE = '/api/v1';
+// Frontend API helper — delegates to apiClient internally
+// Maintained for backwards compatibility; new code should use apiClient directly.
+import { apiClient } from './api-client';
 
 interface ApiResponse<T = unknown> {
     success: boolean;
@@ -7,34 +8,31 @@ interface ApiResponse<T = unknown> {
     error?: { code: string; message: string; details?: unknown };
 }
 
-async function request<T>(
-    url: string,
-    options: RequestInit = {}
-): Promise<ApiResponse<T>> {
-    const res = await fetch(`${API_BASE}${url}`, {
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-        },
-        ...options,
-    });
-    return res.json();
+/**
+ * Wraps an apiClient call to return the legacy { success, data, error } shape.
+ * apiClient throws on error, so we catch and return { success: false, error }.
+ */
+async function wrapCall<T>(call: () => Promise<T>): Promise<ApiResponse<T>> {
+    try {
+        const data = await call();
+        return { success: true, data };
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'An error occurred';
+        return { success: false, error: { code: 'ERROR', message } };
+    }
 }
 
 export const api = {
-    get: <T>(url: string) => request<T>(url),
+    get: <T>(url: string) => wrapCall(() => apiClient.get<T>(url)),
     post: <T>(url: string, data?: unknown) =>
-        request<T>(url, { method: 'POST', body: data ? JSON.stringify(data) : undefined }),
+        wrapCall(() => apiClient.post<T>(url, data)),
     patch: <T>(url: string, data: unknown) =>
-        request<T>(url, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: <T>(url: string) => request<T>(url, { method: 'DELETE' }),
+        wrapCall(() => apiClient.patch<T>(url, data)),
+    delete: <T>(url: string) =>
+        wrapCall(() => apiClient.delete<T>(url)),
 
-    // Multipart upload
-    upload: async <T>(url: string, formData: FormData): Promise<ApiResponse<T>> => {
-        const res = await fetch(`${API_BASE}${url}`, {
-            method: 'POST',
-            body: formData,
-        });
-        return res.json();
-    },
+    // Multipart upload — delegates to apiClient.upload
+    upload: <T>(url: string, formData: FormData) =>
+        wrapCall(() => apiClient.upload<T>(url, formData)),
 };
+

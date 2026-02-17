@@ -7,66 +7,69 @@ import { mentorProfileSchema, formatZodErrors } from '@/lib/validations';
 import { logAudit } from '@/lib/audit';
 
 // GET /api/v1/mentors - List all mentors
-export async function GET(req: NextRequest) {
-    try {
-        const { searchParams } = req.nextUrl;
-        const page = Math.max(1, Number(searchParams.get('page') || '1'));
-        const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || '12')));
-        const search = searchParams.get('search') || '';
-        const status = searchParams.get('status');
+export const GET = withAuth(
+    async (req: NextRequest) => {
+        try {
+            const { searchParams } = req.nextUrl;
+            const page = Math.max(1, Number(searchParams.get('page') || '1'));
+            const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || '12')));
+            const search = searchParams.get('search') || '';
+            const status = searchParams.get('status');
 
-        const where: Record<string, unknown> = {};
+            const where: Record<string, unknown> = {};
 
-        if (search) {
-            where.user = {
-                OR: [
-                    { name: { contains: search, mode: 'insensitive' } },
-                    { email: { contains: search, mode: 'insensitive' } },
-                ]
-            };
+            if (search) {
+                where.user = {
+                    OR: [
+                        { name: { contains: search, mode: 'insensitive' } },
+                        { email: { contains: search, mode: 'insensitive' } },
+                    ]
+                };
+            }
+
+            if (status) {
+                where.status = status;
+            }
+
+            const [mentors, total] = await Promise.all([
+                prisma.mentorProfile.findMany({
+                    where,
+                    include: {
+                        user: { select: { id: true, name: true, email: true, avatarUrl: true } },
+                        _count: { select: { cohorts: true } }
+                    },
+                    orderBy: { user: { name: 'asc' } },
+                    skip: (page - 1) * limit,
+                    take: limit,
+                }),
+                prisma.mentorProfile.count({ where }),
+            ]);
+
+            // Transform to flat structure if needed by frontend, or keep as nested
+            const flattened = mentors.map(m => ({
+                id: m.id,
+                userId: m.userId,
+                name: m.user.name,
+                email: m.user.email,
+                avatarUrl: m.user.avatarUrl,
+                specialization: m.specialization,
+                status: m.status,
+                cohortCount: m._count.cohorts,
+                maxCohorts: m.maxCohorts,
+                rating: m.rating,
+            }));
+
+            return apiSuccess({
+                mentors: flattened,
+                pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+            });
+
+        } catch (error) {
+            return handleApiError(error);
         }
-
-        if (status) {
-            where.status = status;
-        }
-
-        const [mentors, total] = await Promise.all([
-            prisma.mentorProfile.findMany({
-                where,
-                include: {
-                    user: { select: { id: true, name: true, email: true, avatarUrl: true } },
-                    _count: { select: { cohorts: true } }
-                },
-                orderBy: { user: { name: 'asc' } },
-                skip: (page - 1) * limit,
-                take: limit,
-            }),
-            prisma.mentorProfile.count({ where }),
-        ]);
-
-        // Transform to flat structure if needed by frontend, or keep as nested
-        const flattened = mentors.map(m => ({
-            id: m.id,
-            userId: m.userId,
-            name: m.user.name,
-            email: m.user.email,
-            avatarUrl: m.user.avatarUrl,
-            specialization: m.specialization,
-            status: m.status,
-            cohortCount: m._count.cohorts,
-            maxCohorts: m.maxCohorts,
-            rating: m.rating,
-        }));
-
-        return apiSuccess({
-            mentors: flattened,
-            pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-        });
-
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
+    },
+    ['ADMIN', 'INSTRUCTOR']
+);
 
 // POST /api/v1/mentors - Create/Invite new mentor
 export const POST = withAuth(
@@ -81,22 +84,29 @@ export const POST = withAuth(
                 // Check if user exists
                 let targetUser = await prisma.user.findUnique({ where: { email } });
                 if (!targetUser) {
-                    // Create user with a default password
-                    // In a real app, we'd send an invite email.
-                    // For now, we'll set a default password and log it.
-                    const tempPassword = 'mentor123';
-                    const passwordHash = await bcrypt.hash(tempPassword, 12);
+                    const crypto = require('crypto');
+                    const { sendInvitationEmail } = require('@/lib/email');
 
-                    console.log(`[MENTOR CREATED] Email: ${email}, Password: ${tempPassword}`);
+                    const token = crypto.randomBytes(32).toString('hex');
+                    const tokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
                     targetUser = await prisma.user.create({
                         data: {
                             email,
                             name: name || email.split('@')[0],
                             role: 'INSTRUCTOR',
-                            passwordHash,
+                            passwordHash: 'PENDING_SETUP',
+                            isActive: true,
+                            emailVerified: false,
+                            resetToken: token,
+                            resetTokenExp: tokenExp,
                         }
                     });
+
+                    // Send invitation email
+                    sendInvitationEmail(email, token, 'mentor', targetUser.name).catch((err: any) =>
+                        console.error('Failed to send mentor invitation:', err)
+                    );
                 }
                 targetUserId = targetUser.id;
             }

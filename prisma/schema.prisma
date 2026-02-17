@@ -156,6 +156,7 @@ model User {
   questionBank    QuestionBank[]
   markedAttendances Attendance[] @relation("AttendanceMarker")
   studentAttendances Attendance[] @relation("AttendanceStudent")
+  studentsMentored   StudentProfile[] @relation("StudentMentor")
 
   @@map("users")
 }
@@ -376,6 +377,7 @@ model StudentProfile {
   id             String        @id @default(cuid())
   userId         String        @unique @map("user_id")
   cohortId       String?       @map("cohort_id")
+  mentorId       String?       @map("mentor_id")
   status         StudentStatus @default(INVITED)
   phone          String?
   whatsappOptIn  Boolean       @default(true) @map("whatsapp_opt_in")
@@ -383,10 +385,12 @@ model StudentProfile {
   
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   cohort         Cohort?       @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  mentor         User?         @relation("StudentMentor", fields: [mentorId], references: [id], onDelete: SetNull)
   notes          StudentNote[]
 
   @@index([userId])
   @@index([cohortId])
+  @@index([mentorId])
   @@index([status])
   @@map("student_profiles")
 }
