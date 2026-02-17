@@ -8,7 +8,7 @@ const ADMIN_ROUTES = ['/dashboard', '/programs', '/cohorts', '/students', '/ment
 // Student-only routes
 const STUDENT_ROUTES = ['/s/'];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
     // Allow API routes, static assets, uploads, and the root redirect
