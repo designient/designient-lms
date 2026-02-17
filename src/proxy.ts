@@ -22,7 +22,11 @@ export async function proxy(req: NextRequest) {
         return NextResponse.next();
     }
 
-    const token = await getToken({ req, secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET });
+    const token = await getToken({
+        req,
+        secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+        secureCookie: process.env.NODE_ENV === 'production',
+    });
     const role = token?.role as string | undefined;
 
     // Login page: always accessible (post-login redirect handled client-side)
