@@ -18,7 +18,13 @@ export const GET = withAuth(async (_req, _ctx, user) => {
                 studentProfile: {
                     include: {
                         cohort: {
-                            select: { id: true, name: true, startDate: true, endDate: true },
+                            select: {
+                                id: true,
+                                name: true,
+                                startDate: true,
+                                endDate: true,
+                                program: { select: { name: true } },
+                            },
                         },
                     },
                 },

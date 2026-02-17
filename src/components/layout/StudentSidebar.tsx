@@ -16,6 +16,7 @@ import {
     ClipboardCheck,
     Kanban,
     HelpCircle,
+    Calendar,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useBrand } from '@/components/BrandProvider';
@@ -65,6 +66,22 @@ export function StudentSidebar({
 }: StudentSidebarProps) {
     const pathname = usePathname();
     const { logoUrl, orgName } = useBrand();
+    const [cohortInfo, setCohortInfo] = React.useState<{ name: string; program?: string } | null>(null);
+
+    React.useEffect(() => {
+        // Fetch cohort info
+        fetch('/api/v1/me/profile')
+            .then(res => res.json())
+            .then(res => {
+                if (res.success && res.data?.studentProfile?.cohort) {
+                    setCohortInfo({
+                        name: res.data.studentProfile.cohort.name,
+                        program: res.data.studentProfile.cohort.program?.name
+                    });
+                }
+            })
+            .catch(() => { });
+    }, []);
 
     const initials = userName
         ? userName
@@ -74,6 +91,13 @@ export function StudentSidebar({
             .toUpperCase()
             .slice(0, 2)
         : 'ST';
+
+    // Add Schedule to nav items if not present
+    const fullNavItems = [
+        ...navItems.slice(0, 5), // Insert after Grades (index 4)
+        { icon: Calendar, label: 'Schedule', href: '/s/schedule' },
+        ...navItems.slice(5)
+    ];
 
     return (
         <aside
@@ -100,6 +124,19 @@ export function StudentSidebar({
                 </div>
             </div>
 
+            {/* Cohort Context */}
+            {!isCollapsed && cohortInfo && (
+                <div className="px-3 py-4 border-b border-border/50 bg-muted/20">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
+                        Current Cohort
+                    </p>
+                    <p className="text-sm font-bold text-foreground line-clamp-1">{cohortInfo.name}</p>
+                    {cohortInfo.program && (
+                        <p className="text-xs text-primary mt-0.5 line-clamp-1">{cohortInfo.program}</p>
+                    )}
+                </div>
+            )}
+
             {/* Navigation */}
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
                 <div>
@@ -109,7 +146,7 @@ export function StudentSidebar({
                         </h3>
                     )}
                     <nav className="space-y-0.5">
-                        {navItems.map((item) => {
+                        {fullNavItems.map((item) => {
                             const isActive =
                                 pathname === item.href ||
                                 (item.href !== '/s/dashboard' &&

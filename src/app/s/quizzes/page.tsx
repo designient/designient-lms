@@ -22,20 +22,14 @@ export default function StudentQuizzesPage() {
 
     useEffect(() => {
         const fetchQuizzes = async () => {
-            const coursesRes = await api.get<{ courses: { course: { id: string; title: string } }[] }>('/me/courses?limit=50');
-            if (!coursesRes.success || !coursesRes.data) { setIsLoading(false); return; }
-
-            const all: QuizItem[] = [];
-            for (const item of coursesRes.data.courses) {
-                const res = await api.get<{ quizzes: QuizItem[] }>(`/courses/${item.course.id}/quizzes`);
+            try {
+                const res = await api.get<{ quizzes: QuizItem[] }>('/me/quizzes');
                 if (res.success && res.data) {
-                    for (const q of res.data.quizzes) {
-                        const detail = await api.get<QuizItem>(`/quizzes/${q.id}`);
-                        if (detail.success && detail.data) all.push(detail.data);
-                    }
+                    setQuizzes(res.data.quizzes);
                 }
+            } catch (error) {
+                console.error('Failed to fetch quizzes:', error);
             }
-            setQuizzes(all);
             setIsLoading(false);
         };
         fetchQuizzes();

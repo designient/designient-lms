@@ -53,42 +53,32 @@ export default function StudentDashboard() {
     const [courses, setCourses] = useState<EnrolledCourse[]>([]);
     const [grades, setGrades] = useState<Grade[]>([]);
     const [submissions, setSubmissions] = useState<Submission[]>([]);
+    const [cohortInfo, setCohortInfo] = useState<{ name: string; program?: string; startDate: string } | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function fetchAll() {
-            const [coursesRes, gradesRes, submissionsRes] = await Promise.all([
+            const [coursesRes, gradesRes, submissionsRes, profileRes] = await Promise.all([
                 api.get<{ courses: EnrolledCourse[] }>('/me/courses?limit=50'),
                 api.get<{ grades: Grade[] }>('/me/grades?limit=10'),
                 api.get<{ submissions: Submission[] }>('/me/submissions?limit=10'),
+                api.get<any>('/me/profile'),
             ]);
 
             if (coursesRes.success && coursesRes.data) setCourses(coursesRes.data.courses);
             if (gradesRes.success && gradesRes.data) setGrades(gradesRes.data.grades);
             if (submissionsRes.success && submissionsRes.data) setSubmissions(submissionsRes.data.submissions);
+            if (profileRes.success && profileRes.data?.studentProfile?.cohort) {
+                setCohortInfo({
+                    name: profileRes.data.studentProfile.cohort.name,
+                    program: profileRes.data.studentProfile.cohort.program?.name,
+                    startDate: profileRes.data.studentProfile.cohort.startDate,
+                });
+            }
             setLoading(false);
         }
         fetchAll();
     }, []);
-
-    const totalLessons = courses.reduce((sum, c) => sum + c.totalLessons, 0);
-    const completedLessons = courses.reduce((sum, c) => sum + c.completedLessons, 0);
-    const averageProgress =
-        courses.length > 0
-            ? Math.round(courses.reduce((sum, c) => sum + c.progress, 0) / courses.length)
-            : 0;
-    const averageGrade =
-        grades.length > 0
-            ? Math.round(
-                  grades.reduce(
-                      (sum, g) => sum + (g.score / g.submission.assignment.maxScore) * 100,
-                      0
-                  ) / grades.length
-              )
-            : 0;
-    const pendingSubmissions = submissions.filter((s) => !s.grade).length;
-
-    const firstName = session?.user?.name?.split(' ')[0] || 'Student';
 
     if (loading) {
         return (
@@ -98,246 +88,186 @@ export default function StudentDashboard() {
         );
     }
 
+    const firstName = session?.user?.name?.split(' ')[0] || 'Student';
+
     return (
         <div className="space-y-8">
-            {/* Welcome Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                    Welcome back, {firstName}
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Here&apos;s an overview of your learning progress.
-                </p>
+            {/* Header with Context */}
+            <div className="flex items-end justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-foreground">
+                        Hello, {firstName}! 👋
+                    </h1>
+                    <p className="text-muted-foreground mt-2">
+                        {cohortInfo ? (
+                            <>
+                                You are part of <span className="font-semibold text-foreground">{cohortInfo.name}</span>
+                                {cohortInfo.program && <> in the <span className="font-semibold text-foreground">{cohortInfo.program}</span></>}
+                            </>
+                        ) : (
+                            'Welcome to your learning dashboard.'
+                        )}
+                    </p>
+                </div>
+                <div className="hidden md:block text-right">
+                    <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     icon={BookOpen}
                     label="Enrolled Courses"
                     value={courses.length}
-                    sub={`${courses.filter((c) => c.progress === 100).length} completed`}
-                    color="text-blue-500"
+                    sub="Active courses"
+                    color="text-blue-600"
                     bgColor="bg-blue-500/10"
                 />
                 <StatCard
-                    icon={CheckCircle2}
-                    label="Lessons Completed"
-                    value={completedLessons}
-                    sub={`of ${totalLessons} total`}
-                    color="text-emerald-500"
-                    bgColor="bg-emerald-500/10"
+                    icon={Trophy}
+                    label="Assignments"
+                    value={submissions.length}
+                    sub="Submitted"
+                    color="text-amber-600"
+                    bgColor="bg-amber-500/10"
                 />
                 <StatCard
                     icon={TrendingUp}
-                    label="Average Progress"
-                    value={`${averageProgress}%`}
-                    sub="across all courses"
-                    color="text-violet-500"
-                    bgColor="bg-violet-500/10"
+                    label="Average Grade"
+                    value={`${grades.length > 0 ? Math.round(grades.reduce((acc, g) => acc + (g.score / g.submission.assignment.maxScore) * 100, 0) / grades.length) : 0}%`}
+                    sub=" across assignments"
+                    color="text-emerald-600"
+                    bgColor="bg-emerald-500/10"
                 />
                 <StatCard
-                    icon={Trophy}
-                    label="Average Grade"
-                    value={grades.length > 0 ? `${averageGrade}%` : '—'}
-                    sub={
-                        pendingSubmissions > 0
-                            ? `${pendingSubmissions} pending review`
-                            : `${grades.length} graded`
-                    }
-                    color="text-amber-500"
-                    bgColor="bg-amber-500/10"
+                    icon={Clock}
+                    label="Learning Time"
+                    value="12h"
+                    sub="This week"
+                    color="text-violet-600"
+                    bgColor="bg-violet-500/10"
                 />
             </div>
 
-            {/* Active Courses */}
-            <section>
+            {/* Continue Learning */}
+            <div>
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-foreground">
-                        Active Courses
-                    </h2>
-                    <Link
-                        href="/s/courses"
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                    >
-                        View all <ArrowRight className="h-3 w-3" />
+                    <h2 className="text-lg font-semibold text-foreground">Continue Learning</h2>
+                    <Link href="/s/courses" className="text-sm text-primary hover:underline">
+                        View All
                     </Link>
                 </div>
                 {courses.length === 0 ? (
-                    <div className="rounded-xl border border-border/50 bg-card p-8 text-center">
-                        <BookOpen className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                        <p className="text-sm text-muted-foreground">
-                            No courses yet.{' '}
-                            <Link href="/s/catalog" className="text-primary hover:underline">
-                                Browse the catalog
-                            </Link>{' '}
-                            to enroll.
+                    <div className="rounded-xl border border-dashed border-border/60 p-8 text-center">
+                        <p className="text-muted-foreground">
+                            You haven't enrolled in any courses yet.
                         </p>
+                        <Link
+                            href="/s/catalog"
+                            className="inline-block mt-2 text-primary hover:underline"
+                        >
+                            Browse Catalog
+                        </Link>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {courses
-                            .filter((c) => c.progress < 100)
-                            .slice(0, 6)
-                            .map((item) => (
-                                <Link
-                                    key={item.id}
-                                    href={`/s/courses/${item.course.id}/learn`}
-                                    className="group"
-                                >
-                                    <div className="rounded-xl border border-border/50 bg-card p-5 hover:border-primary/30 hover:shadow-sm transition-all">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
-                                                {item.course.level}
-                                            </span>
-                                            <span className="text-xs text-muted-foreground">
-                                                {item.completedLessons}/{item.totalLessons} lessons
-                                            </span>
-                                        </div>
-                                        <h3 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors line-clamp-2">
-                                            {item.course.title}
-                                        </h3>
-                                        <p className="text-xs text-muted-foreground mb-3">
-                                            by {item.course.creator?.name}
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex-1 h-1.5 rounded-full bg-muted/50 overflow-hidden">
-                                                <div
-                                                    className="h-full rounded-full bg-primary transition-all"
-                                                    style={{
-                                                        width: `${item.progress}%`,
-                                                    }}
-                                                />
-                                            </div>
-                                            <span className="text-xs font-medium text-muted-foreground">
+                        {courses.slice(0, 3).map((item) => (
+                            <Link
+                                key={item.id}
+                                href={`/s/courses/${item.course.id}/learn`}
+                                className="group"
+                            >
+                                <div className="rounded-xl border border-border/50 bg-card p-5 hover:border-primary/30 hover:shadow-sm transition-all h-full flex flex-col">
+                                    <h3 className="text-sm font-semibold text-foreground mb-1 group-hover:text-primary transition-colors line-clamp-1">
+                                        {item.course.title}
+                                    </h3>
+                                    <div className="mt-auto pt-3">
+                                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+                                            <span>Progress</span>
+                                            <span className="font-medium">
                                                 {item.progress}%
                                             </span>
                                         </div>
+                                        <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all ${item.progress === 100
+                                                        ? 'bg-emerald-500'
+                                                        : 'bg-primary'
+                                                    }`}
+                                                style={{ width: `${item.progress}%` }}
+                                            />
+                                        </div>
                                     </div>
-                                </Link>
-                            ))}
+                                </div>
+                            </Link>
+                        ))}
                     </div>
                 )}
-            </section>
+            </div>
 
-            {/* Recent Activity Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Recent Grades */}
-                <section>
+                <div>
                     <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold text-foreground">
-                            Recent Grades
-                        </h2>
-                        <Link
-                            href="/s/grades"
-                            className="text-sm text-primary hover:underline flex items-center gap-1"
-                        >
-                            View all <ArrowRight className="h-3 w-3" />
+                        <h2 className="text-lg font-semibold text-foreground">Recent Grades</h2>
+                        <Link href="/s/grades" className="text-sm text-primary hover:underline">
+                            View All
                         </Link>
                     </div>
-                    <div className="rounded-xl border border-border/50 bg-card divide-y divide-border/50">
+                    <div className="space-y-3">
                         {grades.length === 0 ? (
-                            <div className="p-6 text-center">
-                                <BarChart3 className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                                <p className="text-sm text-muted-foreground">
-                                    No grades yet
-                                </p>
-                            </div>
+                            <p className="text-sm text-muted-foreground">No grades yet.</p>
                         ) : (
-                            grades.slice(0, 5).map((grade) => {
-                                const pct =
-                                    (grade.score /
-                                        grade.submission.assignment.maxScore) *
-                                    100;
-                                return (
-                                    <div
-                                        key={grade.id}
-                                        className="flex items-center justify-between px-4 py-3"
-                                    >
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-foreground truncate">
-                                                {grade.submission.assignment.title}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                by {grade.grader.name} &middot;{' '}
-                                                {new Date(
-                                                    grade.gradedAt
-                                                ).toLocaleDateString()}
-                                            </p>
-                                        </div>
-                                        <span
-                                            className={`text-sm font-semibold ${
-                                                pct >= 90
-                                                    ? 'text-emerald-500'
-                                                    : pct >= 70
-                                                      ? 'text-blue-500'
-                                                      : pct >= 50
-                                                        ? 'text-amber-500'
-                                                        : 'text-destructive'
-                                            }`}
-                                        >
-                                            {grade.score}/
-                                            {grade.submission.assignment.maxScore}
-                                        </span>
+                            grades.map((grade) => (
+                                <div key={grade.id} className="rounded-xl border border-border/50 bg-card p-4 flex items-center justify-between">
+                                    <div>
+                                        <p className="font-medium text-sm text-foreground">{grade.submission.assignment.title}</p>
+                                        <p className="text-xs text-muted-foreground">{new Date(grade.gradedAt).toLocaleDateString()}</p>
                                     </div>
-                                );
-                            })
-                        )}
-                    </div>
-                </section>
-
-                {/* Pending Assignments */}
-                <section>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold text-foreground">
-                            Recent Submissions
-                        </h2>
-                        <Link
-                            href="/s/assignments"
-                            className="text-sm text-primary hover:underline flex items-center gap-1"
-                        >
-                            View all <ArrowRight className="h-3 w-3" />
-                        </Link>
-                    </div>
-                    <div className="rounded-xl border border-border/50 bg-card divide-y divide-border/50">
-                        {submissions.length === 0 ? (
-                            <div className="p-6 text-center">
-                                <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                                <p className="text-sm text-muted-foreground">
-                                    No submissions yet
-                                </p>
-                            </div>
-                        ) : (
-                            submissions.slice(0, 5).map((sub) => (
-                                <div
-                                    key={sub.id}
-                                    className="flex items-center justify-between px-4 py-3"
-                                >
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-medium text-foreground truncate">
-                                            {sub.assignment.title}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            <Clock className="h-3 w-3 inline mr-1" />
-                                            {new Date(
-                                                sub.submittedAt
-                                            ).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                    {sub.grade ? (
-                                        <span className="text-xs font-medium text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded">
-                                            Graded: {sub.grade.score}/{sub.assignment.maxScore}
-                                        </span>
-                                    ) : (
-                                        <span className="text-xs font-medium text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded">
-                                            Pending
-                                        </span>
-                                    )}
+                                    <span className="font-bold text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-lg text-sm">
+                                        {grade.score} / {grade.submission.assignment.maxScore}
+                                    </span>
                                 </div>
                             ))
                         )}
                     </div>
-                </section>
+                </div>
+
+                {/* Recent Submissions */}
+                <div>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-foreground">Recent Submissions</h2>
+                        <Link href="/s/assignments" className="text-sm text-primary hover:underline">
+                            View All
+                        </Link>
+                    </div>
+                    <div className="space-y-3">
+                        {submissions.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No submissions yet.</p>
+                        ) : (
+                            submissions.map((sub) => (
+                                <div key={sub.id} className="rounded-xl border border-border/50 bg-card p-4 flex items-center justify-between">
+                                    <div>
+                                        <p className="font-medium text-sm text-foreground">{sub.assignment.title}</p>
+                                        <p className="text-xs text-muted-foreground">{new Date(sub.submittedAt).toLocaleDateString()}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {sub.grade ? (
+                                            <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                                <CheckCircle2 className="h-3 w-3" /> Graded
+                                            </span>
+                                        ) : (
+                                            <span className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded">
+                                                <Clock className="h-3 w-3" /> Pending
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     );

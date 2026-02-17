@@ -47,27 +47,36 @@ export default function StudentTasksPage() {
     useEffect(() => {
         const fetchTasks = async () => {
             try {
-                const coursesRes = await apiClient.get<{ courses: { course: { id: string; title: string } }[] }>('/api/v1/me/courses?limit=50');
-                if (!coursesRes?.courses) { setIsLoading(false); return; }
-
-                const allGroups: AssignmentGroup[] = [];
-                for (const item of coursesRes.courses) {
-                    const assignRes = await apiClient.get<{ assignments: Array<{ id: string; title: string }> }>(`/api/v1/courses/${item.course.id}/assignments`);
-                    if (!assignRes?.assignments) continue;
-                    for (const a of assignRes.assignments) {
-                        const taskRes = await apiClient.get<{ tasks: Task[] }>(`/api/v1/assignments/${a.id}/tasks`);
-                        if (taskRes?.tasks && taskRes.tasks.length > 0) {
-                            allGroups.push({ assignmentId: a.id, assignmentTitle: a.title, courseTitle: item.course.title, tasks: taskRes.tasks });
+                const res = await apiClient.get<{ tasks: any[] }>('/api/v1/me/tasks');
+                if (res?.tasks) {
+                    const groupsMap = new Map<string, AssignmentGroup>();
+                    res.tasks.forEach((task) => {
+                        const assignId = task.assignment.id;
+                        if (!groupsMap.has(assignId)) {
+                            groupsMap.set(assignId, {
+                                assignmentId: assignId,
+                                assignmentTitle: task.assignment.title,
+                                courseTitle: task.assignment.course.title,
+                                tasks: [],
+                            });
                         }
-                    }
+                        groupsMap.get(assignId)!.tasks.push({
+                            ...task,
+                            assignmentId: assignId, // Enhance task with assignmentId flattening if needed
+                        });
+                    });
+                    const allGroups = Array.from(groupsMap.values());
+                    setGroups(allGroups);
+                    if (allGroups.length > 0) setActiveAssignment(allGroups[0].assignmentId);
                 }
-                setGroups(allGroups);
-                if (allGroups.length > 0) setActiveAssignment(allGroups[0].assignmentId);
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error(err);
+                toast({ title: 'Error', description: 'Failed to load tasks', variant: 'error' });
+            }
             setIsLoading(false);
         };
         fetchTasks();
-    }, []);
+    }, [toast]);
 
     const handleStatusChange = async (task: Task, newStatus: string) => {
         try {
