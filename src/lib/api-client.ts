@@ -28,5 +28,6 @@ export const apiClient = {
     get: <T>(url: string) => fetcher<T>(url, 'GET'),
     post: <T>(url: string, body: unknown) => fetcher<T>(url, 'POST', body),
     put: <T>(url: string, body: unknown) => fetcher<T>(url, 'PUT', body),
+    patch: <T>(url: string, body: unknown) => fetcher<T>(url, 'PATCH', body),
     delete: <T>(url: string, body?: unknown) => fetcher<T>(url, 'DELETE', body),
 };
