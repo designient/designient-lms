@@ -40,7 +40,8 @@ export const GET = withAuth(
                     where,
                     include: {
                         user: { select: { id: true, name: true, email: true, avatarUrl: true } },
-                        cohort: { select: { id: true, name: true, status: true } }
+                        cohort: { select: { id: true, name: true, status: true } },
+                        mentor: { select: { id: true, name: true } }
                     },
                     orderBy: { user: { name: 'asc' } },
                     skip: (page - 1) * limit,
@@ -60,6 +61,8 @@ export const GET = withAuth(
                 status: s.status,
                 cohortId: s.cohortId,
                 cohortName: s.cohort?.name,
+                mentorId: s.mentor?.id,
+                mentorName: s.mentor?.name,
                 enrollmentDate: s.enrollmentDate,
                 whatsappOptIn: s.whatsappOptIn,
             }));

@@ -33,6 +33,8 @@ interface ApiStudent {
     status: string;
     cohortId: string | null;
     cohortName?: string;
+    mentorId?: string;
+    mentorName?: string;
     enrollmentDate?: string;
     whatsappOptIn?: boolean;
 }
@@ -69,8 +71,8 @@ function transformStudent(raw: ApiStudent): Student {
         cohortId: raw.cohortId || '',
         cohortName: raw.cohortName || '',
         status: statusMap[raw.status] || 'Invited',
-        mentor: null,
-        mentorId: null,
+        mentor: raw.mentorName || null,
+        mentorId: raw.mentorId || null,
         lastActivity: '',
         enrollmentDate: formatDate(raw.enrollmentDate),
         progress: 0,
@@ -297,6 +299,19 @@ export default function StudentsPage() {
             await apiClient.put(`/api/v1/students/${selectedStudent.id}`, {
                 mentorId: mentorId || null,
             });
+
+            const mentorName = mentorOptionsList.find(m => m.value === mentorId)?.label || null;
+            const updatedStudent: Student = {
+                ...selectedStudent,
+                mentorId: mentorId || null,
+                mentor: mentorName,
+            };
+
+            setSelectedStudent(updatedStudent);
+            setStudents((prev) =>
+                prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
+            );
+
             toast({
                 title: 'Mentor Assigned',
                 description: `Mentor has been assigned to ${selectedStudent.name}.`,
