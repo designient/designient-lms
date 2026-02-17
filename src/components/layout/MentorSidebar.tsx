@@ -43,7 +43,7 @@ function Tooltip({ label, show, children }: TooltipProps) {
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/m/dashboard' },
     { icon: Layers, label: 'My Cohorts', href: '/m/cohorts' },
-    { icon: BookOpen, label: 'My Courses', href: '/m/courses' },
+    { icon: BookOpen, label: 'My Programs', href: '/m/courses' },
     { icon: GraduationCap, label: 'My Students', href: '/m/students' },
     { icon: ClipboardCheck, label: 'Attendance', href: '/m/attendance' },
     { icon: FileText, label: 'Submissions', href: '/m/submissions' },

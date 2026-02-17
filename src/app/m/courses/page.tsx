@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Loader2, BookOpen, FileText, Video, ClipboardCheck } from 'lucide-react';
+import { Loader2, BookOpen, FileText, Video, ClipboardCheck, Layers } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 
@@ -14,10 +14,17 @@ interface CourseItem {
 interface CohortWithCourses {
     id: string;
     name: string;
+    programName: string;
     courses: CourseItem[];
 }
 
-export default function MentorCoursesPage() {
+interface ProgramGroup {
+    programName: string;
+    cohorts: { id: string; name: string }[];
+    courses: Map<string, { course: CourseItem; cohortIds: string[] }>;
+}
+
+export default function MentorProgramsPage() {
     const [cohorts, setCohorts] = useState<CohortWithCourses[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -36,20 +43,29 @@ export default function MentorCoursesPage() {
         );
     }
 
-    // Flatten courses from all cohorts (deduplicate)
-    const courseMap = new Map<string, { course: CourseItem; cohortNames: string[]; cohortIds: string[] }>();
+    // Group by Program
+    const programMap = new Map<string, ProgramGroup>();
     cohorts.forEach(c => {
+        const key = c.programName || 'Uncategorized';
+        if (!programMap.has(key)) {
+            programMap.set(key, {
+                programName: key,
+                cohorts: [],
+                courses: new Map(),
+            });
+        }
+        const group = programMap.get(key)!;
+        group.cohorts.push({ id: c.id, name: c.name });
         c.courses.forEach(course => {
-            const existing = courseMap.get(course.id);
+            const existing = group.courses.get(course.id);
             if (existing) {
-                existing.cohortNames.push(c.name);
                 existing.cohortIds.push(c.id);
             } else {
-                courseMap.set(course.id, { course, cohortNames: [c.name], cohortIds: [c.id] });
+                group.courses.set(course.id, { course, cohortIds: [c.id] });
             }
         });
     });
-    const allCourses = Array.from(courseMap.values());
+    const programs = Array.from(programMap.values());
 
     const actionLinks = (courseId: string, cohortId: string) => [
         { href: `/m/materials?courseId=${courseId}`, icon: FileText, label: 'Materials' },
@@ -60,43 +76,81 @@ export default function MentorCoursesPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-2xl font-bold text-foreground">My Courses</h1>
-                <p className="text-muted-foreground mt-1">Courses from your assigned cohorts</p>
+                <h1 className="text-2xl font-bold text-foreground">My Programs</h1>
+                <p className="text-muted-foreground mt-1">Programs from your assigned cohorts</p>
             </div>
 
-            {allCourses.length === 0 ? (
+            {programs.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border/60 p-12 text-center">
                     <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                    <p className="text-sm text-muted-foreground">No courses found. Courses will appear once assigned to your cohorts.</p>
+                    <p className="text-sm text-muted-foreground">No programs found. Programs will appear once you are assigned to cohorts.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {allCourses.map(({ course, cohortNames, cohortIds }) => (
-                        <div
-                            key={course.id}
-                            className="rounded-xl border border-border/50 bg-card p-5 space-y-3"
-                        >
-                            <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                                <BookOpen className="h-4 w-4 text-blue-600" />
+                <div className="space-y-6">
+                    {programs.map((program) => {
+                        const courses = Array.from(program.courses.values());
+                        return (
+                            <div
+                                key={program.programName}
+                                className="rounded-xl border border-border/50 bg-card overflow-hidden"
+                            >
+                                {/* Program Header */}
+                                <div className="px-5 py-4 border-b border-border/40 bg-gradient-to-r from-primary/5 to-transparent">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                                            <BookOpen className="h-4 w-4 text-primary" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-foreground">{program.programName}</h2>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <Layers className="h-3 w-3 text-muted-foreground" />
+                                                <span className="text-xs text-muted-foreground">
+                                                    {program.cohorts.map(c => c.name).join(', ')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Courses List */}
+                                <div className="divide-y divide-border/30">
+                                    {courses.length === 0 ? (
+                                        <p className="px-5 py-4 text-sm text-muted-foreground italic">
+                                            No courses assigned to this program yet
+                                        </p>
+                                    ) : (
+                                        courses.map(({ course, cohortIds }) => (
+                                            <div
+                                                key={course.id}
+                                                className="px-5 py-3.5 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-7 w-7 rounded-md bg-blue-500/10 flex items-center justify-center">
+                                                        <BookOpen className="h-3.5 w-3.5 text-blue-600" />
+                                                    </div>
+                                                    <span className="text-sm font-medium text-foreground">
+                                                        {course.title}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    {actionLinks(course.id, cohortIds[0]).map(link => (
+                                                        <Link
+                                                            key={link.label}
+                                                            href={link.href}
+                                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border/60 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
+                                                        >
+                                                            <link.icon className="h-3 w-3" />
+                                                            {link.label}
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
-                            <h3 className="text-base font-semibold text-foreground">{course.title}</h3>
-                            <p className="text-xs text-muted-foreground">
-                                Cohorts: {cohortNames.join(', ')}
-                            </p>
-                            <div className="flex flex-wrap gap-2 pt-1">
-                                {actionLinks(course.id, cohortIds[0]).map(link => (
-                                    <Link
-                                        key={link.label}
-                                        href={link.href}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/60 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
-                                    >
-                                        <link.icon className="h-3 w-3" />
-                                        {link.label}
-                                    </Link>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>
