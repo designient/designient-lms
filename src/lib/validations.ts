@@ -154,6 +154,7 @@ export const settingsSchema = z.object({
     billingSettings: z.record(z.string(), z.any()).optional(),
     securitySettings: z.record(z.string(), z.any()).optional(),
     catalogSettings: z.record(z.string(), z.any()).optional(),
+    integrationSettings: z.record(z.string(), z.any()).optional(),
 });
 
 // Subscription Schemas

@@ -42,7 +42,17 @@ import {
     MessageSquare,
     Tag,
     Loader2,
-    GripVertical
+    GripVertical,
+    Mail,
+    UserPlus,
+    Copy,
+    FileSpreadsheet,
+    Video,
+    Phone,
+    Link2,
+    Eye,
+    EyeOff,
+    BarChart3
 } from 'lucide-react';
 import {
     AuditLogEntry,
@@ -186,6 +196,40 @@ export default function SettingsPage({
     const [isCatalogSaving, setIsCatalogSaving] = useState(false);
     const [newSpecialtyLabel, setNewSpecialtyLabel] = useState('');
 
+    // Team states
+    const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; email: string; role: string; avatarUrl?: string; createdAt: string }[]>([]);
+    const [isTeamLoading, setIsTeamLoading] = useState(false);
+    const [showInviteForm, setShowInviteForm] = useState(false);
+    const [inviteName, setInviteName] = useState('');
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [inviteRole, setInviteRole] = useState('INSTRUCTOR');
+    const [isInviting, setIsInviting] = useState(false);
+
+    // Security settings states
+    const [minPasswordLength, setMinPasswordLength] = useState(8);
+    const [requireUppercase, setRequireUppercase] = useState(true);
+    const [requireNumbers, setRequireNumbers] = useState(true);
+    const [requireSpecialChars, setRequireSpecialChars] = useState(false);
+    const [sessionTimeout, setSessionTimeout] = useState('4h');
+    const [maxLoginAttempts, setMaxLoginAttempts] = useState(5);
+
+    // Integration states
+    const [zoomEnabled, setZoomEnabled] = useState(false);
+    const [zoomApiKey, setZoomApiKey] = useState('');
+    const [zoomApiSecret, setZoomApiSecret] = useState('');
+    const [meetEnabled, setMeetEnabled] = useState(false);
+    const [meetClientId, setMeetClientId] = useState('');
+    const [whatsappBizEnabled, setWhatsappBizEnabled] = useState(false);
+    const [whatsappBizPhone, setWhatsappBizPhone] = useState('');
+    const [whatsappBizToken, setWhatsappBizToken] = useState('');
+    const [webhookUrl, setWebhookUrl] = useState('');
+    const [webhookEnabled, setWebhookEnabled] = useState(false);
+    const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+
+    // Data management states
+    const [isExporting, setIsExporting] = useState<string | null>(null);
+    const [dataCounts, setDataCounts] = useState<{ students: number; mentors: number; cohorts: number; courses: number; messages: number }>({ students: 0, mentors: 0, cohorts: 0, courses: 0, messages: 0 });
+
     // Fetch all settings on mount
     useEffect(() => {
         async function fetchSettings() {
@@ -199,7 +243,8 @@ export default function SettingsPage({
                     primaryColor?: string;
                     logoUrl?: string | null;
                     billingSettings?: Record<string, string>;
-                    securitySettings?: Record<string, boolean>;
+                    securitySettings?: Record<string, unknown>;
+                    integrationSettings?: Record<string, unknown>;
                     catalogSettings?: {
                         mentorSpecialties?: { value: string; label: string }[];
                     };
@@ -226,13 +271,35 @@ export default function SettingsPage({
                     setBillingFields(fields);
                 }
 
-                // Notifications
+                // Notifications channel prefs
                 if (settings.securitySettings) {
-                    const ss = settings.securitySettings;
+                    const ss = settings.securitySettings as Record<string, unknown>;
                     if (ss.whatsappEnabled !== undefined) setWhatsappEnabled(!!ss.whatsappEnabled);
                     if (ss.emailEnabled !== undefined) setEmailEnabled(!!ss.emailEnabled);
                     if (ss.smsEnabled !== undefined) setSmsEnabled(!!ss.smsEnabled);
                     if (ss.pushEnabled !== undefined) setPushEnabled(!!ss.pushEnabled);
+                    // Security policy
+                    if (ss.minPasswordLength !== undefined) setMinPasswordLength(ss.minPasswordLength as number);
+                    if (ss.requireUppercase !== undefined) setRequireUppercase(!!ss.requireUppercase);
+                    if (ss.requireNumbers !== undefined) setRequireNumbers(!!ss.requireNumbers);
+                    if (ss.requireSpecialChars !== undefined) setRequireSpecialChars(!!ss.requireSpecialChars);
+                    if (ss.sessionTimeout !== undefined) setSessionTimeout(ss.sessionTimeout as string);
+                    if (ss.maxLoginAttempts !== undefined) setMaxLoginAttempts(ss.maxLoginAttempts as number);
+                }
+
+                // Integration settings
+                if (settings.integrationSettings) {
+                    const is_ = settings.integrationSettings as Record<string, unknown>;
+                    if (is_.zoomEnabled !== undefined) setZoomEnabled(!!is_.zoomEnabled);
+                    if (is_.zoomApiKey) setZoomApiKey(is_.zoomApiKey as string);
+                    if (is_.zoomApiSecret) setZoomApiSecret(is_.zoomApiSecret as string);
+                    if (is_.meetEnabled !== undefined) setMeetEnabled(!!is_.meetEnabled);
+                    if (is_.meetClientId) setMeetClientId(is_.meetClientId as string);
+                    if (is_.whatsappBizEnabled !== undefined) setWhatsappBizEnabled(!!is_.whatsappBizEnabled);
+                    if (is_.whatsappBizPhone) setWhatsappBizPhone(is_.whatsappBizPhone as string);
+                    if (is_.whatsappBizToken) setWhatsappBizToken(is_.whatsappBizToken as string);
+                    if (is_.webhookUrl) setWebhookUrl(is_.webhookUrl as string);
+                    if (is_.webhookEnabled !== undefined) setWebhookEnabled(!!is_.webhookEnabled);
                 }
 
                 // Catalog
@@ -278,6 +345,32 @@ export default function SettingsPage({
                 .finally(() => setIsSubLoading(false));
         }
     }, [activeTab, subscription, isSubLoading]);
+
+    // Fetch team members when team tab is active
+    useEffect(() => {
+        if (activeTab === 'team' && teamMembers.length === 0) {
+            setIsTeamLoading(true);
+            apiClient.get<{ team: typeof teamMembers }>('/api/v1/settings/team')
+                .then(res => setTeamMembers(res.team))
+                .catch(() => setTeamMembers([]))
+                .finally(() => setIsTeamLoading(false));
+        }
+    }, [activeTab, teamMembers.length]);
+
+    // Fetch data counts when data tab is active
+    useEffect(() => {
+        if (activeTab === 'data' && dataCounts.students === 0) {
+            apiClient.get<{ totalStudents: number; totalMentors: number; totalCohorts: number; totalCourses: number }>('/api/v1/admin/dashboard/summary')
+                .then(res => setDataCounts({
+                    students: res.totalStudents || 0,
+                    mentors: res.totalMentors || 0,
+                    cohorts: res.totalCohorts || 0,
+                    courses: res.totalCourses || 0,
+                    messages: 0,
+                }))
+                .catch(() => { });
+        }
+    }, [activeTab, dataCounts.students]);
 
     const handleAddSpecialty = () => {
         const label = newSpecialtyLabel.trim();
@@ -346,7 +439,15 @@ export default function SettingsPage({
                 };
             } else if (activeTab === 'notifications') {
                 payload = {
-                    securitySettings: { whatsappEnabled, emailEnabled, smsEnabled, pushEnabled },
+                    securitySettings: { whatsappEnabled, emailEnabled, smsEnabled, pushEnabled, minPasswordLength, requireUppercase, requireNumbers, requireSpecialChars, sessionTimeout, maxLoginAttempts },
+                };
+            } else if (activeTab === 'security') {
+                payload = {
+                    securitySettings: { whatsappEnabled, emailEnabled, smsEnabled, pushEnabled, minPasswordLength, requireUppercase, requireNumbers, requireSpecialChars, sessionTimeout, maxLoginAttempts },
+                };
+            } else if (activeTab === 'integrations') {
+                payload = {
+                    integrationSettings: { zoomEnabled, zoomApiKey, zoomApiSecret, meetEnabled, meetClientId, whatsappBizEnabled, whatsappBizPhone, whatsappBizToken, webhookUrl, webhookEnabled },
                 };
             }
             await apiClient.put('/api/v1/settings', payload);
@@ -363,6 +464,77 @@ export default function SettingsPage({
             });
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    // Team invite handler
+    const handleInviteTeamMember = async () => {
+        if (!inviteName.trim() || !inviteEmail.trim()) {
+            toast({ title: 'Missing Fields', description: 'Name and email are required.', variant: 'error' });
+            return;
+        }
+        setIsInviting(true);
+        try {
+            const newMember = await apiClient.post<{ id: string; name: string; email: string; role: string; createdAt: string }>('/api/v1/settings/team', {
+                name: inviteName.trim(),
+                email: inviteEmail.trim(),
+                role: inviteRole,
+            });
+            setTeamMembers(prev => [...prev, newMember]);
+            setShowInviteForm(false);
+            setInviteName('');
+            setInviteEmail('');
+            setInviteRole('INSTRUCTOR');
+            toast({ title: 'Member Invited', description: `${newMember.name} has been added to the team.`, variant: 'success' });
+        } catch {
+            toast({ title: 'Error', description: 'Failed to invite team member. They may already exist.', variant: 'error' });
+        } finally {
+            setIsInviting(false);
+        }
+    };
+
+    // CSV Export handler
+    const handleExportCSV = async (entity: string) => {
+        setIsExporting(entity);
+        try {
+            let data: Record<string, unknown>[] = [];
+            let filename = `${entity}.csv`;
+            if (entity === 'students') {
+                const res = await apiClient.get<{ students?: Record<string, unknown>[] } | Record<string, unknown>[]>('/api/v1/students');
+                data = Array.isArray(res) ? res : (res.students || []);
+            } else if (entity === 'mentors') {
+                const res = await apiClient.get<{ mentors?: Record<string, unknown>[] } | Record<string, unknown>[]>('/api/v1/mentors');
+                data = Array.isArray(res) ? res : (res.mentors || []);
+            } else if (entity === 'cohorts') {
+                const res = await apiClient.get<{ cohorts?: Record<string, unknown>[] } | Record<string, unknown>[]>('/api/v1/cohorts');
+                data = Array.isArray(res) ? res : (res.cohorts || []);
+            }
+            if (data.length === 0) {
+                toast({ title: 'No Data', description: `No ${entity} data to export.`, variant: 'info' });
+                return;
+            }
+            // Convert to CSV
+            const headers = Object.keys(data[0]);
+            const csvRows = [headers.join(',')];
+            for (const row of data) {
+                csvRows.push(headers.map(h => {
+                    const val = row[h];
+                    const str = typeof val === 'object' ? JSON.stringify(val) : String(val ?? '');
+                    return `"${str.replace(/"/g, '""')}"`;
+                }).join(','));
+            }
+            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+            toast({ title: 'Export Complete', description: `${entity} data exported successfully.`, variant: 'success' });
+        } catch {
+            toast({ title: 'Export Failed', description: `Could not export ${entity} data.`, variant: 'error' });
+        } finally {
+            setIsExporting(null);
         }
     };
 
@@ -533,14 +705,14 @@ export default function SettingsPage({
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`group inline-flex items-center py-3 px-3 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${isActive
-                                            ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50 dark:bg-emerald-500/10 dark:text-emerald-400'
-                                            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                                        ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                                         }`}
                                 >
                                     <tab.icon
                                         className={`-ml-0.5 mr-1.5 h-4 w-4 ${isActive
-                                                ? 'text-emerald-600 dark:text-emerald-400'
-                                                : 'text-muted-foreground group-hover:text-foreground'
+                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                            : 'text-muted-foreground group-hover:text-foreground'
                                             }`}
                                     />
                                     {tab.label}
@@ -804,15 +976,94 @@ export default function SettingsPage({
                     {activeTab === 'team' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <Card className="bg-white dark:bg-card border-border/50">
-                                <CardContent className="flex flex-col items-center justify-center py-16">
-                                    <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
-                                        <Users className="h-7 w-7 text-emerald-600" />
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Users className="h-5 w-5 text-muted-foreground" />
+                                            <div>
+                                                <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                                                    Team Members
+                                                </CardTitle>
+                                                <CardDescription>
+                                                    Manage your platform administrators and instructors.
+                                                </CardDescription>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            onClick={() => setShowInviteForm(!showInviteForm)}
+                                            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                            size="sm"
+                                        >
+                                            <UserPlus className="h-4 w-4" />
+                                            Invite Member
+                                        </Button>
                                     </div>
-                                    <h3 className="text-lg font-semibold text-foreground mb-1">Team Management</h3>
-                                    <p className="text-sm text-muted-foreground text-center max-w-md">
-                                        Invite team members, assign roles, and manage permissions. This feature is coming soon.
-                                    </p>
-                                    <Badge variant="outline" className="mt-4 text-xs">Coming Soon</Badge>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    {/* Invite Form */}
+                                    {showInviteForm && (
+                                        <div className="p-4 border-b border-border/50 bg-emerald-50/30 dark:bg-emerald-500/5 space-y-3">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="inviteName" className="text-xs">Name</Label>
+                                                    <Input id="inviteName" placeholder="Full name" value={inviteName} onChange={(e) => setInviteName(e.target.value)} />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="inviteEmail" className="text-xs">Email</Label>
+                                                    <Input id="inviteEmail" type="email" placeholder="email@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="inviteRole" className="text-xs">Role</Label>
+                                                    <Select id="inviteRole" options={[{ value: 'INSTRUCTOR', label: 'Instructor' }, { value: 'ADMIN', label: 'Admin' }]} value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 justify-end">
+                                                <Button variant="outline" size="sm" onClick={() => setShowInviteForm(false)}>Cancel</Button>
+                                                <Button size="sm" onClick={handleInviteTeamMember} disabled={isInviting} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+                                                    {isInviting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                                                    Send Invite
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Team List */}
+                                    {isTeamLoading ? (
+                                        <div className="flex justify-center py-12">
+                                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                        </div>
+                                    ) : teamMembers.length === 0 ? (
+                                        <div className="text-center py-12 text-sm text-muted-foreground">
+                                            <Users className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                                            <p>No team members found. Invite your first team member above.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="divide-y divide-border/30">
+                                            {teamMembers.map((member) => (
+                                                <div key={member.id} className="flex items-center gap-4 p-4 hover:bg-muted/20 transition-colors">
+                                                    <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                                                        {member.avatarUrl ? (
+                                                            <img src={member.avatarUrl} alt={member.name} className="h-10 w-10 rounded-full object-cover" />
+                                                        ) : (
+                                                            <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                                                                {member.name?.charAt(0)?.toUpperCase() || '?'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium truncate">{member.name}</p>
+                                                        <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                                                    </div>
+                                                    <Badge variant={member.role === 'ADMIN' ? 'default' : 'outline'} className="text-[10px]">
+                                                        {member.role === 'ADMIN' ? 'Admin' : 'Instructor'}
+                                                    </Badge>
+                                                    <span className="text-[11px] text-muted-foreground hidden sm:block">
+                                                        Joined {new Date(member.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
                         </div>
@@ -996,13 +1247,12 @@ export default function SettingsPage({
                                                             return (
                                                                 <div
                                                                     key={tier.plan}
-                                                                    className={`relative rounded-xl border-2 p-5 flex flex-col transition-all ${
-                                                                        isCurrent
-                                                                            ? 'border-primary bg-primary/5 shadow-sm'
-                                                                            : isFree
-                                                                                ? 'border-border/50 bg-muted/30'
-                                                                                : 'border-border hover:border-primary/30'
-                                                                    }`}
+                                                                    className={`relative rounded-xl border-2 p-5 flex flex-col transition-all ${isCurrent
+                                                                        ? 'border-primary bg-primary/5 shadow-sm'
+                                                                        : isFree
+                                                                            ? 'border-border/50 bg-muted/30'
+                                                                            : 'border-border hover:border-primary/30'
+                                                                        }`}
                                                                 >
                                                                     {/* Badges */}
                                                                     <div className="flex items-center gap-1.5 mb-3">
@@ -1312,17 +1562,77 @@ export default function SettingsPage({
                     {/* Security Tab */}
                     {activeTab === 'security' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            {/* Password Policy */}
                             <Card className="bg-white dark:bg-card border-border/50">
-                                <CardContent className="flex flex-col items-center justify-center py-16">
-                                    <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
-                                        <Shield className="h-7 w-7 text-emerald-600" />
+                                <CardHeader>
+                                    <div className="flex items-center gap-2">
+                                        <Key className="h-5 w-5 text-muted-foreground" />
+                                        <div>
+                                            <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Password Policy</CardTitle>
+                                            <CardDescription>Configure password requirements for all users.</CardDescription>
+                                        </div>
                                     </div>
-                                    <h3 className="text-lg font-semibold text-foreground mb-1">Security Settings</h3>
-                                    <p className="text-sm text-muted-foreground text-center max-w-md">
-                                        Two-factor authentication, session management, and login policies. This feature is coming soon.
-                                    </p>
-                                    <Badge variant="outline" className="mt-4 text-xs">Coming Soon</Badge>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-4">
+                                    <div className="space-y-2">
+                                        <Label>Minimum Password Length: <span className="font-semibold text-emerald-600">{minPasswordLength}</span></Label>
+                                        <input type="range" min={6} max={32} value={minPasswordLength} onChange={(e) => setMinPasswordLength(Number(e.target.value))} className="w-full accent-emerald-600" />
+                                        <div className="flex justify-between text-[10px] text-muted-foreground"><span>6</span><span>32</span></div>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {[
+                                            { id: 'reqUpper', label: 'Require uppercase letters', checked: requireUppercase, onChange: setRequireUppercase },
+                                            { id: 'reqNumbers', label: 'Require numbers', checked: requireNumbers, onChange: setRequireNumbers },
+                                            { id: 'reqSpecial', label: 'Require special characters (!@#$%)', checked: requireSpecialChars, onChange: setRequireSpecialChars },
+                                        ].map(opt => (
+                                            <div key={opt.id} className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-card hover:bg-muted/20 transition-colors">
+                                                <input type="checkbox" id={opt.id} checked={opt.checked} onChange={(e) => opt.onChange(e.target.checked)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                                                <label htmlFor={opt.id} className="text-sm font-medium">{opt.label}</label>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </CardContent>
+                            </Card>
+
+                            {/* Session Management */}
+                            <Card className="bg-white dark:bg-card border-border/50">
+                                <CardHeader>
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="h-5 w-5 text-muted-foreground" />
+                                        <div>
+                                            <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Session & Login</CardTitle>
+                                            <CardDescription>Configure session timeout and login restrictions.</CardDescription>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="sessionTimeout">Session Timeout</Label>
+                                            <Select id="sessionTimeout" options={[
+                                                { value: '15m', label: '15 minutes' },
+                                                { value: '30m', label: '30 minutes' },
+                                                { value: '1h', label: '1 hour' },
+                                                { value: '4h', label: '4 hours' },
+                                                { value: '24h', label: '24 hours' },
+                                            ]} value={sessionTimeout} onChange={(e) => setSessionTimeout(e.target.value)} />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="maxLoginAttempts">Max Failed Login Attempts</Label>
+                                            <Select id="maxLoginAttempts" options={[
+                                                { value: '3', label: '3 attempts' },
+                                                { value: '5', label: '5 attempts' },
+                                                { value: '10', label: '10 attempts' },
+                                            ]} value={String(maxLoginAttempts)} onChange={(e) => setMaxLoginAttempts(Number(e.target.value))} />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                                <CardFooter className="bg-muted/20 border-t border-border/50 flex justify-end py-3">
+                                    <Button onClick={handleSave} disabled={isSaving || isSettingsLoading} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+                                        <Save className="h-4 w-4" />
+                                        {isSaving ? 'Saving...' : 'Save Security Settings'}
+                                    </Button>
+                                </CardFooter>
                             </Card>
                         </div>
                     )}
@@ -1330,18 +1640,151 @@ export default function SettingsPage({
                     {/* Integrations Tab */}
                     {activeTab === 'integrations' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            {/* Zoom */}
                             <Card className="bg-white dark:bg-card border-border/50">
-                                <CardContent className="flex flex-col items-center justify-center py-16">
-                                    <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
-                                        <Key className="h-7 w-7 text-emerald-600" />
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center">
+                                                <Video className="h-5 w-5 text-blue-600" />
+                                            </div>
+                                            <div>
+                                                <CardTitle className="text-sm font-semibold">Zoom</CardTitle>
+                                                <CardDescription className="text-xs">Video conferencing for live sessions</CardDescription>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant={zoomEnabled ? 'success' : 'outline'} className="text-[10px]">{zoomEnabled ? 'Active' : 'Inactive'}</Badge>
+                                            <input type="checkbox" checked={zoomEnabled} onChange={(e) => setZoomEnabled(e.target.checked)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                                        </div>
                                     </div>
-                                    <h3 className="text-lg font-semibold text-foreground mb-1">Integrations & API</h3>
-                                    <p className="text-sm text-muted-foreground text-center max-w-md">
-                                        API keys, webhooks, and third-party integrations. This feature is coming soon.
-                                    </p>
-                                    <Badge variant="outline" className="mt-4 text-xs">Coming Soon</Badge>
-                                </CardContent>
+                                </CardHeader>
+                                {zoomEnabled && (
+                                    <CardContent className="space-y-3 pt-0">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">API Key</Label>
+                                                <Input placeholder="Enter Zoom API Key" value={zoomApiKey} onChange={(e) => setZoomApiKey(e.target.value)} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">API Secret</Label>
+                                                <div className="relative">
+                                                    <Input type={showSecrets.zoom ? 'text' : 'password'} placeholder="Enter Zoom API Secret" value={zoomApiSecret} onChange={(e) => setZoomApiSecret(e.target.value)} />
+                                                    <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowSecrets(p => ({ ...p, zoom: !p.zoom }))}>
+                                                        {showSecrets.zoom ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                )}
                             </Card>
+
+                            {/* Google Meet */}
+                            <Card className="bg-white dark:bg-card border-border/50">
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-lg bg-green-100 dark:bg-green-500/20 flex items-center justify-center">
+                                                <Video className="h-5 w-5 text-green-600" />
+                                            </div>
+                                            <div>
+                                                <CardTitle className="text-sm font-semibold">Google Meet</CardTitle>
+                                                <CardDescription className="text-xs">Google Workspace integration for meetings</CardDescription>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant={meetEnabled ? 'success' : 'outline'} className="text-[10px]">{meetEnabled ? 'Active' : 'Inactive'}</Badge>
+                                            <input type="checkbox" checked={meetEnabled} onChange={(e) => setMeetEnabled(e.target.checked)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                {meetEnabled && (
+                                    <CardContent className="space-y-3 pt-0">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">OAuth Client ID</Label>
+                                            <Input placeholder="Enter Google OAuth Client ID" value={meetClientId} onChange={(e) => setMeetClientId(e.target.value)} />
+                                        </div>
+                                    </CardContent>
+                                )}
+                            </Card>
+
+                            {/* WhatsApp Business */}
+                            <Card className="bg-white dark:bg-card border-border/50">
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
+                                                <Phone className="h-5 w-5 text-emerald-600" />
+                                            </div>
+                                            <div>
+                                                <CardTitle className="text-sm font-semibold">WhatsApp Business</CardTitle>
+                                                <CardDescription className="text-xs">Send notifications via WhatsApp Business API</CardDescription>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant={whatsappBizEnabled ? 'success' : 'outline'} className="text-[10px]">{whatsappBizEnabled ? 'Active' : 'Inactive'}</Badge>
+                                            <input type="checkbox" checked={whatsappBizEnabled} onChange={(e) => setWhatsappBizEnabled(e.target.checked)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                {whatsappBizEnabled && (
+                                    <CardContent className="space-y-3 pt-0">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">Phone Number</Label>
+                                                <Input placeholder="+91 9876543210" value={whatsappBizPhone} onChange={(e) => setWhatsappBizPhone(e.target.value)} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">API Token</Label>
+                                                <div className="relative">
+                                                    <Input type={showSecrets.whatsapp ? 'text' : 'password'} placeholder="Enter API Token" value={whatsappBizToken} onChange={(e) => setWhatsappBizToken(e.target.value)} />
+                                                    <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowSecrets(p => ({ ...p, whatsapp: !p.whatsapp }))}>
+                                                        {showSecrets.whatsapp ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                )}
+                            </Card>
+
+                            {/* Webhook */}
+                            <Card className="bg-white dark:bg-card border-border/50">
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center">
+                                                <Link2 className="h-5 w-5 text-purple-600" />
+                                            </div>
+                                            <div>
+                                                <CardTitle className="text-sm font-semibold">Webhooks</CardTitle>
+                                                <CardDescription className="text-xs">Send event notifications to external services</CardDescription>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant={webhookEnabled ? 'success' : 'outline'} className="text-[10px]">{webhookEnabled ? 'Active' : 'Inactive'}</Badge>
+                                            <input type="checkbox" checked={webhookEnabled} onChange={(e) => setWebhookEnabled(e.target.checked)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                {webhookEnabled && (
+                                    <CardContent className="space-y-3 pt-0">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Webhook URL</Label>
+                                            <Input placeholder="https://your-service.com/webhook" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} />
+                                            <p className="text-[10px] text-muted-foreground">Events (enrollment, grading, submissions) will POST to this URL.</p>
+                                        </div>
+                                    </CardContent>
+                                )}
+                            </Card>
+
+                            <div className="flex justify-end">
+                                <Button onClick={handleSave} disabled={isSaving} className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+                                    <Save className="h-4 w-4" />
+                                    {isSaving ? 'Saving...' : 'Save Integrations'}
+                                </Button>
+                            </div>
                         </div>
                     )}
 
@@ -1386,8 +1829,8 @@ export default function SettingsPage({
                                             >
                                                 <div
                                                     className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${log.status === 'success'
-                                                            ? 'bg-emerald-100'
-                                                            : 'bg-red-100'
+                                                        ? 'bg-emerald-100'
+                                                        : 'bg-red-100'
                                                         }`}
                                                 >
                                                     {log.status === 'success' ? (
@@ -1448,16 +1891,76 @@ export default function SettingsPage({
                     {/* Data Tab */}
                     {activeTab === 'data' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            {/* Data Overview */}
                             <Card className="bg-white dark:bg-card border-border/50">
-                                <CardContent className="flex flex-col items-center justify-center py-16">
-                                    <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
-                                        <Database className="h-7 w-7 text-emerald-600" />
+                                <CardHeader>
+                                    <div className="flex items-center gap-2">
+                                        <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                                        <div>
+                                            <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Data Overview</CardTitle>
+                                            <CardDescription>Summary of data stored in your platform.</CardDescription>
+                                        </div>
                                     </div>
-                                    <h3 className="text-lg font-semibold text-foreground mb-1">Data Management</h3>
-                                    <p className="text-sm text-muted-foreground text-center max-w-md">
-                                        Export data, manage backups, and configure retention policies. This feature is coming soon.
-                                    </p>
-                                    <Badge variant="outline" className="mt-4 text-xs">Coming Soon</Badge>
+                                </CardHeader>
+                                <CardContent className="pt-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {[
+                                            { label: 'Students', count: dataCounts.students, icon: Users, color: 'text-blue-600 bg-blue-100 dark:bg-blue-500/20' },
+                                            { label: 'Mentors', count: dataCounts.mentors, icon: Users, color: 'text-emerald-600 bg-emerald-100 dark:bg-emerald-500/20' },
+                                            { label: 'Cohorts', count: dataCounts.cohorts, icon: Database, color: 'text-purple-600 bg-purple-100 dark:bg-purple-500/20' },
+                                            { label: 'Courses', count: dataCounts.courses, icon: Layout, color: 'text-amber-600 bg-amber-100 dark:bg-amber-500/20' },
+                                        ].map(item => (
+                                            <div key={item.label} className="rounded-lg border border-border/50 p-4 text-center">
+                                                <div className={`h-10 w-10 rounded-full ${item.color} flex items-center justify-center mx-auto mb-2`}>
+                                                    <item.icon className="h-5 w-5" />
+                                                </div>
+                                                <p className="text-2xl font-bold">{item.count}</p>
+                                                <p className="text-xs text-muted-foreground">{item.label}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Export Data */}
+                            <Card className="bg-white dark:bg-card border-border/50">
+                                <CardHeader>
+                                    <div className="flex items-center gap-2">
+                                        <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
+                                        <div>
+                                            <CardTitle className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Export Data</CardTitle>
+                                            <CardDescription>Download your data as CSV files.</CardDescription>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="pt-4">
+                                    <div className="space-y-3">
+                                        {[
+                                            { entity: 'students', label: 'Students', description: 'Names, emails, enrollment dates, cohorts', icon: Users },
+                                            { entity: 'mentors', label: 'Mentors', description: 'Names, emails, specialties, assigned cohorts', icon: Users },
+                                            { entity: 'cohorts', label: 'Cohorts', description: 'Cohort names, programs, dates, student counts', icon: Database },
+                                        ].map(item => (
+                                            <div key={item.entity} className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:bg-muted/20 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <item.icon className="h-4 w-4 text-muted-foreground" />
+                                                    <div>
+                                                        <p className="text-sm font-medium">{item.label}</p>
+                                                        <p className="text-xs text-muted-foreground">{item.description}</p>
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="gap-2"
+                                                    onClick={() => handleExportCSV(item.entity)}
+                                                    disabled={isExporting === item.entity}
+                                                >
+                                                    {isExporting === item.entity ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                                                    Export CSV
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </CardContent>
                             </Card>
                         </div>

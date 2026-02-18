@@ -1,61 +1,70 @@
 'use client';
 
-import React from 'react';
-import { Bell, Check, UserPlus, Flag, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Bell, UserPlus, Flag, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { useToast } from '@/components/ui/Toast';
+import { apiClient } from '@/lib/api-client';
 
-interface Notification {
+interface NotificationItem {
     id: string;
-    title: string;
-    message: string;
-    time: string;
     type: 'info' | 'warning' | 'success';
-    read: boolean;
+    title: string;
+    description: string;
+    time: string;
+    userName: string;
+    userAvatar: string | null;
 }
-
-const mockNotifications: Notification[] = [
-    {
-        id: '1',
-        title: 'New Student Enrollment',
-        message: 'Sofia Rodriguez joined Spring 2024 Foundations',
-        time: '2 hours ago',
-        type: 'success',
-        read: false,
-    },
-    {
-        id: '2',
-        title: 'Student Flagged',
-        message: 'James Wilson was flagged by Sarah Chen',
-        time: '5 hours ago',
-        type: 'warning',
-        read: false,
-    },
-    {
-        id: '3',
-        title: 'Cohort Starting Soon',
-        message: 'Spring 2024 Design Systems starts in 3 days',
-        time: '1 day ago',
-        type: 'info',
-        read: true,
-    },
-];
 
 interface NotificationsPanelProps {
     open: boolean;
     onClose: () => void;
 }
 
-export function NotificationsPanel({ open, onClose }: NotificationsPanelProps) {
-    const { toast } = useToast();
+function timeAgo(dateStr: string): string {
+    const now = Date.now();
+    const then = new Date(dateStr).getTime();
+    const diff = Math.max(0, now - then);
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
-    const handleViewAll = () => {
-        onClose();
-        toast({
-            title: 'Notifications',
-            description: 'Full notifications history will be available soon.',
-            variant: 'info',
-        });
+export function NotificationsPanel({ open, onClose }: NotificationsPanelProps) {
+    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [lastReadTime, setLastReadTime] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('notif_last_read') || '';
+        }
+        return '';
+    });
+
+    useEffect(() => {
+        if (open && notifications.length === 0) {
+            setIsLoading(true);
+            apiClient.get<{ notifications: NotificationItem[] }>('/api/v1/notifications')
+                .then(res => setNotifications(res.notifications))
+                .catch(() => setNotifications([]))
+                .finally(() => setIsLoading(false));
+        }
+    }, [open, notifications.length]);
+
+    const handleMarkAllRead = () => {
+        const now = new Date().toISOString();
+        setLastReadTime(now);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('notif_last_read', now);
+        }
+    };
+
+    const isRead = (time: string) => {
+        if (!lastReadTime) return false;
+        return new Date(time) <= new Date(lastReadTime);
     };
 
     if (!open) return null;
@@ -66,26 +75,33 @@ export function NotificationsPanel({ open, onClose }: NotificationsPanelProps) {
             <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-xl border border-border/50 bg-card shadow-xl z-40">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
                     <h3 className="font-semibold text-sm">Notifications</h3>
-                    <button className="text-xs text-primary hover:text-primary/80 font-medium">
+                    <button
+                        className="text-xs text-primary hover:text-primary/80 font-medium"
+                        onClick={handleMarkAllRead}
+                    >
                         Mark all as read
                     </button>
                 </div>
 
                 <div className="max-h-[400px] overflow-y-auto">
-                    {mockNotifications.length > 0 ? (
+                    {isLoading ? (
+                        <div className="py-8 text-center">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" />
+                        </div>
+                    ) : notifications.length > 0 ? (
                         <div className="divide-y divide-border/30">
-                            {mockNotifications.map((notification) => (
+                            {notifications.map((notification) => (
                                 <div
                                     key={notification.id}
-                                    className={`p-4 hover:bg-muted/40 transition-colors ${!notification.read ? 'bg-primary/5' : ''}`}
+                                    className={`p-4 hover:bg-muted/40 transition-colors ${!isRead(notification.time) ? 'bg-primary/5' : ''}`}
                                 >
                                     <div className="flex gap-3">
                                         <div
                                             className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${notification.type === 'success'
-                                                    ? 'bg-green-100 text-green-600'
-                                                    : notification.type === 'warning'
-                                                        ? 'bg-amber-100 text-amber-600'
-                                                        : 'bg-blue-100 text-blue-600'
+                                                ? 'bg-green-100 text-green-600'
+                                                : notification.type === 'warning'
+                                                    ? 'bg-amber-100 text-amber-600'
+                                                    : 'bg-blue-100 text-blue-600'
                                                 }`}
                                         >
                                             {notification.type === 'success' && <UserPlus className="h-4 w-4" />}
@@ -94,10 +110,12 @@ export function NotificationsPanel({ open, onClose }: NotificationsPanelProps) {
                                         </div>
                                         <div className="flex-1 space-y-1">
                                             <p className="text-sm font-medium leading-none">{notification.title}</p>
-                                            <p className="text-xs text-muted-foreground">{notification.message}</p>
-                                            <p className="text-[10px] text-muted-foreground/70 pt-1">{notification.time}</p>
+                                            <p className="text-xs text-muted-foreground">{notification.description}</p>
+                                            <p className="text-[10px] text-muted-foreground/70 pt-1">
+                                                {timeAgo(notification.time)} · {notification.userName}
+                                            </p>
                                         </div>
-                                        {!notification.read && (
+                                        {!isRead(notification.time) && (
                                             <div className="h-2 w-2 rounded-full bg-primary mt-1.5" />
                                         )}
                                     </div>
@@ -113,8 +131,8 @@ export function NotificationsPanel({ open, onClose }: NotificationsPanelProps) {
                 </div>
 
                 <div className="p-2 border-t border-border/50 bg-muted/20">
-                    <Button variant="ghost" size="sm" className="w-full text-xs h-8" onClick={handleViewAll}>
-                        View all notifications
+                    <Button variant="ghost" size="sm" className="w-full text-xs h-8" onClick={onClose}>
+                        Close
                     </Button>
                 </div>
             </div>
