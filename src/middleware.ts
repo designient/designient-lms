@@ -8,7 +8,10 @@ const ADMIN_ROUTES = ['/dashboard', '/programs', '/cohorts', '/students', '/ment
 // Student-only routes
 const STUDENT_ROUTES = ['/s/'];
 
-export async function proxy(req: NextRequest) {
+// Public routes (no auth required)
+const PUBLIC_ROUTES = ['/login', '/signup', '/forgot-password', '/reset-password', '/auth/setup-account'];
+
+export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
     // Allow API routes, static assets, uploads, and the root redirect
@@ -17,9 +20,13 @@ export async function proxy(req: NextRequest) {
         pathname.startsWith('/_next') ||
         pathname.startsWith('/favicon') ||
         pathname.startsWith('/uploads/') ||
-        pathname === '/' ||
-        pathname.startsWith('/auth/')
+        pathname === '/'
     ) {
+        return NextResponse.next();
+    }
+
+    // Allow public routes (login, signup, password reset, etc.)
+    if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
         return NextResponse.next();
     }
 
@@ -29,11 +36,6 @@ export async function proxy(req: NextRequest) {
         secureCookie: process.env.NODE_ENV === 'production',
     });
     const role = token?.role as string | undefined;
-
-    // Login page: always accessible (post-login redirect handled client-side)
-    if (pathname === '/login') {
-        return NextResponse.next();
-    }
 
     // Not authenticated — redirect to login
     if (!token) {
