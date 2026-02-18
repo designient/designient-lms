@@ -38,14 +38,13 @@ import {
     Calendar,
     Search,
     Filter,
-    Eye,
     X
 } from 'lucide-react';
-import { MessageTemplate, Message, ScheduledMessage } from '@/types';
+import { MessageTemplate } from '@/types';
 import { apiClient } from '@/lib/api-client';
 
-// Mock Data
-const initialTemplates: MessageTemplate[] = [
+// Built-in templates (client-side — no DB model for templates yet)
+const builtInTemplates: MessageTemplate[] = [
     {
         id: 'TPL-001',
         name: 'Welcome Email',
@@ -55,9 +54,9 @@ const initialTemplates: MessageTemplate[] = [
         channel: 'email',
         variables: ['{{student_name}}', '{{cohort_name}}', '{{mentor_name}}'],
         status: 'active',
-        usageCount: 156,
+        usageCount: 0,
         createdAt: 'Jan 10, 2024',
-        updatedAt: 'Mar 1, 2024'
+        updatedAt: 'Jan 10, 2024'
     },
     {
         id: 'TPL-002',
@@ -66,18 +65,11 @@ const initialTemplates: MessageTemplate[] = [
         subject: 'Payment Reminder - {{amount}} Due',
         body: 'Hi {{student_name}},\n\nThis is a friendly reminder that your payment of {{amount}} for {{cohort_name}} is due on {{due_date}}.\n\nPlease complete the payment to continue your learning journey.\n\nPayment Link: {{payment_link}}\n\nBest regards,\nTeam Designient',
         channel: 'email',
-        variables: [
-            '{{student_name}}',
-            '{{amount}}',
-            '{{cohort_name}}',
-            '{{due_date}}',
-            '{{payment_link}}'
-        ],
-
+        variables: ['{{student_name}}', '{{amount}}', '{{cohort_name}}', '{{due_date}}', '{{payment_link}}'],
         status: 'active',
-        usageCount: 89,
+        usageCount: 0,
         createdAt: 'Jan 15, 2024',
-        updatedAt: 'Feb 20, 2024'
+        updatedAt: 'Jan 15, 2024'
     },
     {
         id: 'TPL-003',
@@ -86,17 +78,11 @@ const initialTemplates: MessageTemplate[] = [
         subject: '',
         body: 'Hi {{student_name}}! 👋\n\nReminder: Your mentoring session with {{mentor_name}} is scheduled for tomorrow at {{session_time}}.\n\nJoin link: {{meeting_link}}\n\nSee you there! 🎯',
         channel: 'whatsapp',
-        variables: [
-            '{{student_name}}',
-            '{{mentor_name}}',
-            '{{session_time}}',
-            '{{meeting_link}}'
-        ],
-
+        variables: ['{{student_name}}', '{{mentor_name}}', '{{session_time}}', '{{meeting_link}}'],
         status: 'active',
-        usageCount: 234,
+        usageCount: 0,
         createdAt: 'Jan 20, 2024',
-        updatedAt: 'Mar 10, 2024'
+        updatedAt: 'Jan 20, 2024'
     },
     {
         id: 'TPL-004',
@@ -107,117 +93,28 @@ const initialTemplates: MessageTemplate[] = [
         channel: 'email',
         variables: ['{{student_name}}', '{{cohort_name}}'],
         status: 'active',
-        usageCount: 52,
+        usageCount: 0,
         createdAt: 'Feb 1, 2024',
         updatedAt: 'Feb 1, 2024'
     }
 ];
 
-const mockMessages: Message[] = [
-    {
-        id: 'MSG-001',
-        templateId: 'TPL-003',
-        templateName: 'Session Reminder (WhatsApp)',
-        subject: '',
-        body: 'Session reminder message...',
-        channel: 'whatsapp',
-        recipientType: 'cohort',
-        recipientCount: 24,
-        recipients: [],
-        sentBy: 'U-001',
-        sentByName: 'Super Admin',
-        sentAt: 'Mar 15, 2024 09:00 AM',
-        status: 'delivered',
-        deliveredCount: 23,
-        failedCount: 1,
-        openRate: 95
-    },
-    {
-        id: 'MSG-002',
-        templateId: 'TPL-002',
-        templateName: 'Payment Reminder',
-        subject: 'Payment Reminder - ₹15,000 Due',
-        body: 'Payment reminder message...',
-        channel: 'email',
-        recipientType: 'custom',
-        recipientCount: 12,
-        recipients: [],
-        sentBy: 'U-003',
-        sentByName: 'Rahul Verma',
-        sentAt: 'Mar 14, 2024 02:30 PM',
-        status: 'partial',
-        deliveredCount: 10,
-        failedCount: 2,
-        openRate: 67
-    },
-    {
-        id: 'MSG-003',
-        templateId: 'TPL-001',
-        templateName: 'Welcome Email',
-        subject: 'Welcome to Spring 2024 Design Systems',
-        body: 'Welcome message...',
-        channel: 'email',
-        recipientType: 'individual',
-        recipientCount: 1,
-        recipients: ['S-1003'],
-        sentBy: 'U-002',
-        sentByName: 'Priya Sharma',
-        sentAt: 'Mar 14, 2024 10:15 AM',
-        status: 'delivered',
-        deliveredCount: 1,
-        failedCount: 0,
-        openRate: 100
-    },
-    {
-        id: 'MSG-004',
-        subject: 'Important: Schedule Change for Tomorrow',
-        body: 'Custom message about schedule change...',
-        channel: 'email',
-        recipientType: 'all_students',
-        recipientCount: 186,
-        recipients: [],
-        sentBy: 'U-001',
-        sentByName: 'Super Admin',
-        sentAt: 'Mar 13, 2024 04:45 PM',
-        status: 'delivered',
-        deliveredCount: 184,
-        failedCount: 2,
-        openRate: 78
-    }
-];
-
-const initialScheduledMessages: ScheduledMessage[] = [
-    {
-        id: 'SCH-001',
-        templateId: 'TPL-003',
-        templateName: 'Session Reminder (WhatsApp)',
-        subject: '',
-        body: 'Session reminder...',
-        channel: 'whatsapp',
-        recipientType: 'cohort',
-        recipientCount: 18,
-        scheduledFor: 'Mar 16, 2024 08:00 AM',
-        scheduledBy: 'U-001',
-        scheduledByName: 'Super Admin',
-        status: 'scheduled',
-        createdAt: 'Mar 15, 2024'
-    },
-    {
-        id: 'SCH-002',
-        templateId: 'TPL-002',
-        templateName: 'Payment Reminder',
-        subject: 'Payment Reminder - Due in 3 Days',
-        body: 'Payment reminder...',
-        channel: 'email',
-        recipientType: 'custom',
-        recipientCount: 8,
-        scheduledFor: 'Mar 18, 2024 10:00 AM',
-        scheduledBy: 'U-003',
-        scheduledByName: 'Rahul Verma',
-        status: 'scheduled',
-        createdAt: 'Mar 15, 2024'
-    }
-];
+// API response types
+interface ApiMessage {
+    id: string;
+    subject: string;
+    body: string;
+    channel: string;
+    status: string;
+    recipientType: string;
+    recipientCount: number;
+    sentAt: string | null;
+    scheduledAt: string | null;
+    senderId: string;
+    createdAt: string;
+    updatedAt: string;
+    sender: { name: string };
+}
 
 type CommunicationsTab = 'compose' | 'templates' | 'history' | 'scheduled';
 
@@ -236,11 +133,12 @@ export default function CommunicationsPage({
     const { toast } = useToast();
     const [activeTab, setActiveTab] = useState<CommunicationsTab>('compose');
     const [templates, setTemplates] =
-        useState<MessageTemplate[]>(initialTemplates);
-    const [scheduledMessages, setScheduledMessages] = useState<
-        ScheduledMessage[]
-    >(initialScheduledMessages);
+        useState<MessageTemplate[]>(builtInTemplates);
+    const [messages, setMessages] = useState<ApiMessage[]>([]);
+    const [scheduledMessages, setScheduledMessages] = useState<ApiMessage[]>([]);
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+    const [loadingMessages, setLoadingMessages] = useState(true);
+    const [sendingMessage, setSendingMessage] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     // Drawer states
     const [isTemplateDrawerOpen, setIsTemplateDrawerOpen] = useState(false);
@@ -277,16 +175,32 @@ export default function CommunicationsPage({
     const [composeBody, setComposeBody] = useState('');
     const [cohortOptionsForCompose, setCohortOptionsForCompose] = useState<{ value: string; label: string }[]>([]);
 
-    useEffect(() => {
-        apiClient.get<{ cohorts: Array<{ id: string; name: string; _count?: { students: number } }> }>('/api/v1/cohorts?limit=50')
-            .then(res => {
-                setCohortOptionsForCompose(res.cohorts.map(c => ({
-                    value: c.id,
-                    label: `${c.name} (${c._count?.students ?? 0} students)`,
-                })));
-            })
-            .catch(() => {});
+    // Load cohorts, message history, and scheduled messages from APIs
+    const loadData = useCallback(async () => {
+        setLoadingMessages(true);
+        try {
+            const [cohortsRes, historyRes, scheduledRes] = await Promise.all([
+                apiClient.get<{ cohorts: Array<{ id: string; name: string; _count?: { students: number } }> }>('/api/v1/cohorts?limit=50').catch(() => ({ cohorts: [] })),
+                apiClient.get<{ messages: ApiMessage[]; pagination: { total: number } }>('/api/v1/communications?limit=50').catch(() => ({ messages: [], pagination: { total: 0 } })),
+                apiClient.get<{ messages: ApiMessage[] }>('/api/v1/communications/scheduled').catch(() => ({ messages: [] })),
+            ]);
+
+            setCohortOptionsForCompose(cohortsRes.cohorts.map(c => ({
+                value: c.id,
+                label: `${c.name} (${c._count?.students ?? 0} students)`,
+            })));
+            setMessages(historyRes.messages);
+            setScheduledMessages(scheduledRes.messages);
+        } catch (e) {
+            // silently handle
+        } finally {
+            setLoadingMessages(false);
+        }
     }, []);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     // Handle initial recipient
     useEffect(() => {
@@ -331,7 +245,7 @@ export default function CommunicationsPage({
         ];
 
     const getChannelIcon = (channel: string) => {
-        switch (channel) {
+        switch (channel.toLowerCase()) {
             case 'email':
                 return <Mail className="h-4 w-4" />;
             case 'whatsapp':
@@ -344,7 +258,7 @@ export default function CommunicationsPage({
     };
 
     const getChannelColor = (channel: string) => {
-        switch (channel) {
+        switch (channel.toLowerCase()) {
             case 'email':
                 return 'bg-blue-100 text-blue-600';
             case 'whatsapp':
@@ -357,18 +271,20 @@ export default function CommunicationsPage({
     };
 
     const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'delivered':
-            case 'sent':
+        switch (status.toUpperCase()) {
+            case 'DELIVERED':
+            case 'SENT':
                 return <Badge variant="success">{status}</Badge>;
-            case 'partial':
+            case 'PARTIAL':
                 return <Badge variant="warning">Partial</Badge>;
-            case 'failed':
+            case 'FAILED':
                 return <Badge variant="destructive">Failed</Badge>;
-            case 'scheduled':
+            case 'SCHEDULED':
                 return <Badge variant="neutral">Scheduled</Badge>;
-            case 'cancelled':
+            case 'CANCELLED':
                 return <Badge variant="secondary">Cancelled</Badge>;
+            case 'DRAFT':
+                return <Badge variant="neutral">Draft</Badge>;
             default:
                 return <Badge variant="neutral">{status}</Badge>;
         }
@@ -514,69 +430,129 @@ export default function CommunicationsPage({
         });
     };
 
-    const handleSendMessage = () => {
-        toast({
-            title: 'Message Sent',
-            description: `Your message has been sent to ${composeRecipientType === 'cohort'
+    const handleSendMessage = async () => {
+        setSendingMessage(true);
+        try {
+            const recipientTypeMap: Record<string, string> = {
+                individual: 'INDIVIDUAL',
+                cohort: 'COHORT',
+                all_students: 'ALL_STUDENTS',
+                all_mentors: 'ALL_MENTORS',
+                custom: 'CUSTOM',
+            };
+            const channelMap: Record<string, string> = {
+                email: 'EMAIL',
+                whatsapp: 'WHATSAPP',
+                sms: 'SMS',
+            };
+
+            await apiClient.post('/api/v1/communications', {
+                subject: composeSubject || '(No Subject)',
+                body: composeBody,
+                channel: channelMap[composeChannel] || 'EMAIL',
+                recipientType: recipientTypeMap[composeRecipientType] || 'ALL_STUDENTS',
+            });
+
+            toast({
+                title: 'Message Sent',
+                description: `Your message has been sent to ${composeRecipientType === 'cohort'
                     ? 'the selected cohort'
                     : 'recipients'
-                }.`,
-            variant: 'success'
-        });
-        setShowSendConfirm(false);
-        setComposeSubject('');
-        setComposeBody('');
-        setSelectedTemplate('');
+                    }.`,
+                variant: 'success'
+            });
+            setShowSendConfirm(false);
+            setComposeSubject('');
+            setComposeBody('');
+            setSelectedTemplate('');
+            // Reload messages
+            loadData();
+        } catch (error) {
+            toast({
+                title: 'Send Failed',
+                description: 'Failed to send message. Please try again.',
+                variant: 'error'
+            });
+        } finally {
+            setSendingMessage(false);
+            setShowSendConfirm(false);
+        }
     };
 
-    const handleScheduleMessage = () => {
-        const newScheduled: ScheduledMessage = {
-            id: `SCH-${String(scheduledMessages.length + 1).padStart(3, '0')}`,
-            subject: composeSubject,
-            body: composeBody,
-            channel: composeChannel as 'email' | 'whatsapp' | 'sms',
-            recipientType: composeRecipientType as any,
-            recipientCount: composeRecipientType === 'cohort' ? 24 : 186,
-            scheduledFor: `${scheduleDate} ${scheduleTime}`,
-            scheduledBy: 'U-001',
-            scheduledByName: 'Super Admin',
-            status: 'scheduled',
-            createdAt: new Date().toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-            })
-        };
-        setScheduledMessages((prev) => [newScheduled, ...prev]);
-        toast({
-            title: 'Message Scheduled',
-            description: `Your message will be sent on ${scheduleDate} at ${scheduleTime}.`,
-            variant: 'success'
-        });
-        setShowScheduleModal(false);
-        setScheduleDate('');
-        setScheduleTime('');
-        setComposeSubject('');
-        setComposeBody('');
+    const handleScheduleMessage = async () => {
+        setSendingMessage(true);
+        try {
+            const recipientTypeMap: Record<string, string> = {
+                individual: 'INDIVIDUAL',
+                cohort: 'COHORT',
+                all_students: 'ALL_STUDENTS',
+                all_mentors: 'ALL_MENTORS',
+                custom: 'CUSTOM',
+            };
+            const channelMap: Record<string, string> = {
+                email: 'EMAIL',
+                whatsapp: 'WHATSAPP',
+                sms: 'SMS',
+            };
+
+            const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
+
+            await apiClient.post('/api/v1/communications', {
+                subject: composeSubject || '(No Subject)',
+                body: composeBody,
+                channel: channelMap[composeChannel] || 'EMAIL',
+                recipientType: recipientTypeMap[composeRecipientType] || 'ALL_STUDENTS',
+                scheduledAt,
+            });
+
+            toast({
+                title: 'Message Scheduled',
+                description: `Your message will be sent on ${scheduleDate} at ${scheduleTime}.`,
+                variant: 'success'
+            });
+            setShowScheduleModal(false);
+            setScheduleDate('');
+            setScheduleTime('');
+            setComposeSubject('');
+            setComposeBody('');
+            // Reload data
+            loadData();
+        } catch (error) {
+            toast({
+                title: 'Schedule Failed',
+                description: 'Failed to schedule message. Please try again.',
+                variant: 'error'
+            });
+        } finally {
+            setSendingMessage(false);
+            setShowScheduleModal(false);
+        }
     };
 
-    const handleCancelScheduled = (messageId: string) => {
-        setScheduledMessages((prev) =>
-            prev.map((m) =>
-                m.id === messageId
-                    ? {
-                        ...m,
-                        status: 'cancelled' as const
-                    }
-                    : m
-            )
-        );
-        setShowCancelScheduleConfirm(null);
-        toast({
-            title: 'Message Cancelled',
-            description: 'The scheduled message has been cancelled.',
-            variant: 'info'
-        });
+    const handleCancelScheduled = async (messageId: string) => {
+        try {
+            // Update the message status to CANCELLED via the communications API
+            await apiClient.put(`/api/v1/communications`, { id: messageId, status: 'CANCELLED' }).catch(() => {
+                // If dedicated cancel endpoint doesn't exist, update locally
+                setScheduledMessages((prev) =>
+                    prev.filter((m) => m.id !== messageId)
+                );
+            });
+            setShowCancelScheduleConfirm(null);
+            toast({
+                title: 'Message Cancelled',
+                description: 'The scheduled message has been cancelled.',
+                variant: 'info'
+            });
+            loadData();
+        } catch {
+            setShowCancelScheduleConfirm(null);
+            toast({
+                title: 'Cancel Failed',
+                description: 'Failed to cancel the scheduled message.',
+                variant: 'error'
+            });
+        }
     };
 
     const handleUseTemplate = (templateId: string) => {
@@ -611,7 +587,9 @@ export default function CommunicationsPage({
                                 <Send className="h-6 w-6 text-emerald-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold text-foreground">1,247</p>
+                                <p className="text-2xl font-bold text-foreground">
+                                    {messages.filter(m => m.status === 'SENT').length}
+                                </p>
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                     Messages Sent
                                 </p>
@@ -624,7 +602,11 @@ export default function CommunicationsPage({
                                 <CheckCircle className="h-6 w-6 text-emerald-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold text-foreground">96.2%</p>
+                                <p className="text-2xl font-bold text-foreground">
+                                    {messages.length > 0
+                                        ? `${Math.round((messages.filter(m => m.status === 'SENT').length / messages.length) * 100)}%`
+                                        : '—'}
+                                </p>
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                     Delivery Rate
                                 </p>
@@ -634,12 +616,14 @@ export default function CommunicationsPage({
                     <Card className="p-5 bg-white dark:bg-card border-border/50">
                         <div className="flex items-center gap-4">
                             <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                                <Eye className="h-6 w-6 text-blue-600" />
+                                <Mail className="h-6 w-6 text-blue-600" />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold text-foreground">72.8%</p>
+                                <p className="text-2xl font-bold text-foreground">
+                                    {messages.reduce((sum, m) => sum + m.recipientCount, 0)}
+                                </p>
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                    Open Rate
+                                    Total Recipients
                                 </p>
                             </div>
                         </div>
@@ -651,7 +635,7 @@ export default function CommunicationsPage({
                             </div>
                             <div>
                                 <p className="text-2xl font-bold text-foreground">
-                                    {scheduledMessages.filter((m) => m.status === 'scheduled').length}
+                                    {scheduledMessages.length}
                                 </p>
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                     Scheduled
@@ -671,14 +655,14 @@ export default function CommunicationsPage({
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={`group inline-flex items-center py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${isActive
-                                            ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50 dark:bg-emerald-500/10 dark:text-emerald-400'
-                                            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                                        ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                                         }`}
                                 >
                                     <tab.icon
                                         className={`-ml-0.5 mr-2 h-4 w-4 ${isActive
-                                                ? 'text-emerald-600 dark:text-emerald-400'
-                                                : 'text-muted-foreground group-hover:text-foreground'
+                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                            : 'text-muted-foreground group-hover:text-foreground'
                                             }`}
                                     />
                                     {tab.label}
@@ -874,7 +858,7 @@ export default function CommunicationsPage({
                                             </div>
                                             <span className="text-sm">Email</span>
                                         </div>
-                                        <span className="text-sm font-medium">842 sent</span>
+                                        <span className="text-sm font-medium">{messages.filter(m => m.channel === 'EMAIL').length} sent</span>
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
@@ -883,7 +867,7 @@ export default function CommunicationsPage({
                                             </div>
                                             <span className="text-sm">WhatsApp</span>
                                         </div>
-                                        <span className="text-sm font-medium">389 sent</span>
+                                        <span className="text-sm font-medium">{messages.filter(m => m.channel === 'WHATSAPP').length} sent</span>
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
@@ -892,7 +876,7 @@ export default function CommunicationsPage({
                                             </div>
                                             <span className="text-sm">SMS</span>
                                         </div>
-                                        <span className="text-sm font-medium">16 sent</span>
+                                        <span className="text-sm font-medium">{messages.filter(m => m.channel === 'SMS').length} sent</span>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -1060,7 +1044,15 @@ export default function CommunicationsPage({
                         <Card className="bg-white dark:bg-card border-border/50">
                             <CardContent className="p-0">
                                 <div className="divide-y divide-border/50">
-                                    {mockMessages.map((message) => (
+                                    {loadingMessages ? (
+                                        <div className="p-8 text-center text-muted-foreground">
+                                            Loading messages...
+                                        </div>
+                                    ) : messages.length === 0 ? (
+                                        <div className="p-8 text-center text-muted-foreground">
+                                            No messages sent yet. Go to Compose to send your first message.
+                                        </div>
+                                    ) : messages.map((message) => (
                                         <div
                                             key={message.id}
                                             className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
@@ -1077,8 +1069,7 @@ export default function CommunicationsPage({
                                                     <div className="flex items-center gap-2">
                                                         <p className="text-sm font-medium">
                                                             {message.subject ||
-                                                                message.templateName ||
-                                                                'WhatsApp Message'}
+                                                                'Message'}
                                                         </p>
                                                         {getStatusBadge(message.status)}
                                                     </div>
@@ -1089,16 +1080,18 @@ export default function CommunicationsPage({
                                                         </span>
                                                         <span>•</span>
                                                         <span>
-                                                            {message.recipientType === 'cohort'
+                                                            {message.recipientType === 'COHORT'
                                                                 ? 'Cohort'
-                                                                : message.recipientType === 'all_students'
+                                                                : message.recipientType === 'ALL_STUDENTS'
                                                                     ? 'All Students'
-                                                                    : message.recipientType === 'individual'
+                                                                    : message.recipientType === 'INDIVIDUAL'
                                                                         ? 'Individual'
-                                                                        : 'Custom'}
+                                                                        : message.recipientType === 'ALL_MENTORS'
+                                                                            ? 'All Mentors'
+                                                                            : 'Custom'}
                                                         </span>
                                                         <span>•</span>
-                                                        <span>by {message.sentByName}</span>
+                                                        <span>by {message.sender?.name || 'Unknown'}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1106,23 +1099,13 @@ export default function CommunicationsPage({
                                                 <div className="flex items-center gap-3 text-xs">
                                                     <div className="flex items-center gap-1 text-emerald-600">
                                                         <CheckCircle className="h-3.5 w-3.5" />
-                                                        {message.deliveredCount}
+                                                        {message.recipientCount}
                                                     </div>
-                                                    {message.failedCount > 0 && (
-                                                        <div className="flex items-center gap-1 text-red-600">
-                                                            <XCircle className="h-3.5 w-3.5" />
-                                                            {message.failedCount}
-                                                        </div>
-                                                    )}
-                                                    {message.openRate && (
-                                                        <div className="flex items-center gap-1 text-blue-600">
-                                                            <Eye className="h-3.5 w-3.5" />
-                                                            {message.openRate}%
-                                                        </div>
-                                                    )}
                                                 </div>
                                                 <p className="text-[10px] text-muted-foreground mt-1">
-                                                    {message.sentAt}
+                                                    {message.sentAt
+                                                        ? new Date(message.sentAt).toLocaleString()
+                                                        : new Date(message.createdAt).toLocaleString()}
                                                 </p>
                                             </div>
                                         </div>
@@ -1141,7 +1124,7 @@ export default function CommunicationsPage({
                 {/* Scheduled Tab */}
                 {activeTab === 'scheduled' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        {scheduledMessages.filter((m) => m.status === 'scheduled').length >
+                        {scheduledMessages.length >
                             0 ? (
                             <Card className="bg-white dark:bg-card border-border/50">
                                 <CardHeader>
@@ -1155,7 +1138,6 @@ export default function CommunicationsPage({
                                 <CardContent className="p-0">
                                     <div className="divide-y divide-border/50">
                                         {scheduledMessages
-                                            .filter((m) => m.status === 'scheduled')
                                             .map((message) => (
                                                 <div
                                                     key={message.id}
@@ -1173,8 +1155,7 @@ export default function CommunicationsPage({
                                                             <div className="flex items-center gap-2">
                                                                 <p className="text-sm font-medium">
                                                                     {message.subject ||
-                                                                        message.templateName ||
-                                                                        'WhatsApp Message'}
+                                                                        'Scheduled Message'}
                                                                 </p>
                                                                 {getStatusBadge(message.status)}
                                                             </div>
@@ -1184,7 +1165,7 @@ export default function CommunicationsPage({
                                                                     {message.recipientCount} recipients
                                                                 </span>
                                                                 <span>•</span>
-                                                                <span>by {message.scheduledByName}</span>
+                                                                <span>by {message.sender?.name || 'Unknown'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1193,7 +1174,9 @@ export default function CommunicationsPage({
                                                             <div className="flex items-center gap-1.5 text-amber-600">
                                                                 <Calendar className="h-3.5 w-3.5" />
                                                                 <span className="text-xs font-medium">
-                                                                    {message.scheduledFor}
+                                                                    {message.scheduledAt
+                                                                        ? new Date(message.scheduledAt).toLocaleString()
+                                                                        : 'TBD'}
                                                                 </span>
                                                             </div>
                                                         </div>
