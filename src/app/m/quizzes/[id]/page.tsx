@@ -88,7 +88,7 @@ export default function MentorQuizBuilderPage({ params }: { params: Promise<{ id
                 <Link href="/m/quizzes" className="p-2 rounded-lg hover:bg-muted/60 transition-colors"><ArrowLeft className="h-4 w-4" /></Link>
                 <div className="flex-1">
                     <h1 className="text-xl font-bold text-foreground">{quiz.title}</h1>
-                    <p className="text-sm text-muted-foreground">{quiz.course.title} · {quiz.cohort.name}</p>
+                    <p className="text-sm text-muted-foreground">{quiz.cohort.name}</p>
                 </div>
                 <Button onClick={loadBank} className="gap-2"><Plus className="h-4 w-4" /> Add from Bank</Button>
             </div>

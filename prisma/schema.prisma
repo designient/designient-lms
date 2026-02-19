@@ -504,7 +504,7 @@ model CohortCourse {
 model ClassSession {
   id          String    @id @default(cuid())
   cohortId    String    @map("cohort_id")
-  courseId    String    @map("course_id")
+  courseId    String?   @map("course_id")
   title       String
   scheduledAt DateTime  @map("scheduled_at")
   duration    Int       @default(60)
@@ -513,7 +513,7 @@ model ClassSession {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   cohort      Cohort       @relation(fields: [cohortId], references: [id], onDelete: Cascade)
-  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course      Course?      @relation(fields: [courseId], references: [id], onDelete: Cascade)
   attendances Attendance[]
 
   @@index([cohortId])

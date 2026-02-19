@@ -35,7 +35,7 @@ export const GET = withAuth(
             // Group by course
             const byCourse = new Map<string, { courseTitle: string; total: number; present: number }>();
             attendances.forEach(a => {
-                const cid = a.session.courseId;
+                const cid = a.session.courseId || 'unknown';
                 const existing = byCourse.get(cid);
                 const isPresent = a.status === 'PRESENT' || a.status === 'LATE';
                 if (existing) {
@@ -43,7 +43,7 @@ export const GET = withAuth(
                     if (isPresent) existing.present++;
                 } else {
                     byCourse.set(cid, {
-                        courseTitle: a.session.course.title,
+                        courseTitle: a.session.course?.title || 'General',
                         total: 1,
                         present: isPresent ? 1 : 0,
                     });
@@ -63,7 +63,7 @@ export const GET = withAuth(
                     id: a.id,
                     status: a.status,
                     sessionTitle: a.session.title,
-                    courseTitle: a.session.course.title,
+                    courseTitle: a.session.course?.title || 'General',
                     cohortName: a.session.cohort.name,
                     scheduledAt: a.session.scheduledAt,
                 })),

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Loader2, ArrowLeft, Users, BookOpen } from 'lucide-react';
+import { Loader2, ArrowLeft, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
@@ -17,7 +17,6 @@ interface CohortDetail {
     capacity: number;
     studentCount: number;
     students: Array<{ id: string; userId: string; name: string; email: string; avatarUrl: string | null; status: string; phone: string | null }>;
-    courses: Array<{ id: string; title: string; slug: string; level: string; moduleCount: number }>;
 }
 
 export default function MentorCohortDetailPage() {
@@ -63,26 +62,23 @@ export default function MentorCohortDetailPage() {
                 </div>
             </div>
 
-            {/* Courses Section */}
-            <div className="rounded-xl border border-border/50 bg-card">
-                <div className="p-5 border-b border-border/50">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                        <BookOpen className="h-5 w-5 text-blue-600" />
-                        Courses ({cohort.courses.length})
-                    </h2>
+            {/* Cohort Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="rounded-lg border border-border/50 bg-card p-4 text-center">
+                    <p className="text-2xl font-bold text-foreground">{cohort.studentCount}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Enrolled</p>
                 </div>
-                <div className="divide-y divide-border/50">
-                    {cohort.courses.map((course) => (
-                        <div key={course.id} className="flex items-center justify-between p-4">
-                            <div>
-                                <p className="text-sm font-medium text-foreground">{course.title}</p>
-                                <p className="text-xs text-muted-foreground">{course.moduleCount} modules · {course.level}</p>
-                            </div>
-                        </div>
-                    ))}
-                    {cohort.courses.length === 0 && (
-                        <p className="p-6 text-center text-sm text-muted-foreground">No courses assigned</p>
-                    )}
+                <div className="rounded-lg border border-border/50 bg-card p-4 text-center">
+                    <p className="text-2xl font-bold text-foreground">{cohort.capacity}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Capacity</p>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-card p-4 text-center">
+                    <p className="text-2xl font-bold text-foreground">{new Date(cohort.startDate).toLocaleDateString()}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Start Date</p>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-card p-4 text-center">
+                    <p className="text-2xl font-bold text-foreground">{cohort.endDate ? new Date(cohort.endDate).toLocaleDateString() : '—'}</p>
+                    <p className="text-xs text-muted-foreground mt-1">End Date</p>
                 </div>
             </div>
 
@@ -106,9 +102,14 @@ export default function MentorCohortDetailPage() {
                                     <p className="text-xs text-muted-foreground">{student.email}</p>
                                 </div>
                             </div>
-                            <Badge variant={student.status === 'ACTIVE' ? 'success' : student.status === 'INVITED' ? 'neutral' : 'warning'}>
-                                {student.status}
-                            </Badge>
+                            <div className="flex items-center gap-3">
+                                {student.phone && (
+                                    <span className="text-xs text-muted-foreground">{student.phone}</span>
+                                )}
+                                <Badge variant={student.status === 'ACTIVE' ? 'success' : student.status === 'INVITED' ? 'neutral' : 'warning'}>
+                                    {student.status}
+                                </Badge>
+                            </div>
                         </div>
                     ))}
                     {cohort.students.length === 0 && (

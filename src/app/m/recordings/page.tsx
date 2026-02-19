@@ -80,7 +80,7 @@ export default function MentorRecordingsPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Class Recordings</h1>
-                    <p className="text-muted-foreground mt-1">Manage YouTube recordings for your courses</p>
+                    <p className="text-muted-foreground mt-1">Manage YouTube recordings for your programs</p>
                 </div>
                 <Button onClick={() => setShowAdd(!showAdd)} className="gap-2"><Plus className="h-4 w-4" /> Add Recording</Button>
             </div>

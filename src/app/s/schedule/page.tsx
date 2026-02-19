@@ -87,8 +87,8 @@ export default function StudentSchedulePage() {
                                         <div
                                             key={session.id}
                                             className={`rounded-xl border bg-card p-5 transition-all ${isOngoing
-                                                    ? 'border-primary shadow-[0_0_0_1px_rgba(var(--primary),1)] shadow-primary/20'
-                                                    : 'border-border/50 hover:border-border'
+                                                ? 'border-primary shadow-[0_0_0_1px_rgba(var(--primary),1)] shadow-primary/20'
+                                                : 'border-border/50 hover:border-border'
                                                 }`}
                                         >
                                             <div className="flex flex-col md:flex-row md:items-center gap-6">
@@ -110,7 +110,7 @@ export default function StudentSchedulePage() {
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded">
                                                             <BookOpen className="h-3 w-3" />
-                                                            {session.course.title}
+                                                            {session.course?.title || 'General'}
                                                         </span>
                                                         {isOngoing && (
                                                             <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-white bg-red-500 px-2 py-0.5 rounded animate-pulse">

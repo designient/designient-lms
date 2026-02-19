@@ -26,7 +26,7 @@ export const GET = withAuth(
             const formatted = sessions.map(s => ({
                 id: s.id,
                 title: s.title,
-                courseTitle: s.course.title,
+                courseTitle: s.course?.title || '',
                 courseId: s.courseId,
                 scheduledAt: s.scheduledAt,
                 duration: s.duration,
@@ -50,8 +50,8 @@ export const POST = withAuth(
             const body = await req.json();
             const { courseId, title, scheduledAt, duration } = body;
 
-            if (!courseId || !title || !scheduledAt) {
-                return apiError('courseId, title, and scheduledAt are required', 400);
+            if (!title || !scheduledAt) {
+                return apiError('title and scheduledAt are required', 400);
             }
 
             // Verify mentor has access to this cohort
@@ -63,10 +63,23 @@ export const POST = withAuth(
             const hasAccess = user.role === 'ADMIN' || mentor?.cohorts.some(c => c.id === id);
             if (!hasAccess) return apiError('Not authorized for this cohort', 403);
 
+            // Resolve courseId if possible (not required)
+            let resolvedCourseId = courseId;
+            if (!resolvedCourseId) {
+                const cohort = await prisma.cohort.findUnique({
+                    where: { id },
+                    include: {
+                        program: { select: { courseId: true } },
+                        courses: { select: { courseId: true }, take: 1 },
+                    },
+                });
+                resolvedCourseId = cohort?.courses[0]?.courseId || cohort?.program?.courseId || null;
+            }
+
             const session = await prisma.classSession.create({
                 data: {
                     cohortId: id,
-                    courseId,
+                    ...(resolvedCourseId ? { courseId: resolvedCourseId } : {}),
                     title,
                     scheduledAt: new Date(scheduledAt),
                     duration: duration || 60,

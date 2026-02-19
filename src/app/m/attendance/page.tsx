@@ -1,13 +1,23 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Loader2, Plus, Calendar, Users, Clock, BookOpen } from 'lucide-react';
+import { Loader2, Plus, Calendar, Users, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 
-interface CohortOption { id: string; name: string; courses: Array<{ id: string; title: string }> }
+interface ProgramOption {
+    courseId: string;
+    programName: string;
+}
+
+interface CohortOption {
+    id: string;
+    name: string;
+    programName: string;
+    courses: Array<{ id: string; title: string }>;
+}
 
 interface SessionItem {
     id: string;
@@ -27,16 +37,7 @@ export default function MentorAttendancePage() {
     const [isLoading, setIsLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
     const [creating, setCreating] = useState(false);
-    const [form, setForm] = useState({ courseId: '', title: '', scheduledAt: '', duration: '60' });
-
-    // Auto-select first course when active cohort changes
-    useEffect(() => {
-        if (!activeCohort) return;
-        const cohort = cohorts.find(c => c.id === activeCohort);
-        if (cohort?.courses?.length) {
-            setForm(f => ({ ...f, courseId: cohort.courses[0].id }));
-        }
-    }, [activeCohort, cohorts]);
+    const [form, setForm] = useState({ title: '', scheduledAt: '', duration: '60' });
 
     useEffect(() => {
         apiClient.get<{ cohorts: CohortOption[] }>('/api/v1/instructor/cohorts')
@@ -57,18 +58,26 @@ export default function MentorAttendancePage() {
             .finally(() => setIsLoading(false));
     }, [activeCohort]);
 
+    // Resolve the program's courseId for the active cohort
+    const getActiveCourseId = (): string | null => {
+        const cohort = cohorts.find(c => c.id === activeCohort);
+        if (!cohort) return null;
+        return cohort.courses.length > 0 ? cohort.courses[0].id : null;
+    };
+
     const handleCreate = async () => {
+        const courseId = getActiveCourseId();
         setCreating(true);
         try {
             await apiClient.post(`/api/v1/cohorts/${activeCohort}/sessions`, {
-                courseId: form.courseId,
+                courseId: courseId || undefined,
                 title: form.title,
                 scheduledAt: form.scheduledAt,
                 duration: Number(form.duration),
             });
             toast({ title: 'Created', description: 'Session created.', variant: 'success' });
             setShowCreate(false);
-            setForm({ courseId: '', title: '', scheduledAt: '', duration: '60' });
+            setForm({ title: '', scheduledAt: '', duration: '60' });
             // Refresh
             const res = await apiClient.get<{ sessions: SessionItem[] }>(`/api/v1/cohorts/${activeCohort}/sessions`);
             setSessions(res.sessions);
@@ -79,7 +88,9 @@ export default function MentorAttendancePage() {
         }
     };
 
+    // Get current program name for display
     const currentCohort = cohorts.find(c => c.id === activeCohort);
+    const currentProgramName = currentCohort?.programName || '';
 
     return (
         <div className="space-y-6">
@@ -110,17 +121,12 @@ export default function MentorAttendancePage() {
             {showCreate && currentCohort && (
                 <div className="rounded-xl border border-border/50 bg-card p-5 space-y-3">
                     <h3 className="text-sm font-semibold">New Class Session</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <select
-                            value={form.courseId}
-                            onChange={e => setForm(f => ({ ...f, courseId: e.target.value }))}
-                            className="px-3 py-2 rounded-lg border border-border/60 bg-background text-sm"
-                        >
-                            <option value="">Select Course / Program</option>
-                            {currentCohort.courses.map(c => (
-                                <option key={c.id} value={c.id}>{c.title}</option>
-                            ))}
-                        </select>
+                    {currentProgramName && (
+                        <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg">
+                            Program: <span className="font-medium text-foreground">{currentProgramName}</span>
+                        </div>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <input
                             type="text"
                             placeholder="Session Title"
@@ -143,7 +149,7 @@ export default function MentorAttendancePage() {
                         />
                     </div>
                     <div className="flex gap-2">
-                        <Button onClick={handleCreate} disabled={creating || !form.courseId || !form.title}>
+                        <Button onClick={handleCreate} disabled={creating || !form.title || !form.scheduledAt}>
                             {creating ? 'Creating...' : 'Create Session'}
                         </Button>
                         <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
@@ -173,7 +179,6 @@ export default function MentorAttendancePage() {
                                 <div>
                                     <p className="text-sm font-semibold text-foreground">{session.title}</p>
                                     <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                                        <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> {session.courseTitle}</span>
                                         <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(session.scheduledAt).toLocaleDateString()}</span>
                                         <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {session.duration}m</span>
                                     </div>

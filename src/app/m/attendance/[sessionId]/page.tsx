@@ -108,7 +108,7 @@ export default function MentorAttendanceRosterPage({ params }: { params: Promise
                 <div>
                     <h1 className="text-xl font-bold text-foreground">{session.title}</h1>
                     <p className="text-sm text-muted-foreground">
-                        {session.course.title} · {session.cohort.name} · {new Date(session.scheduledAt).toLocaleDateString()}
+                        {session.cohort.name} · {new Date(session.scheduledAt).toLocaleDateString()}
                     </p>
                 </div>
             </div>
@@ -154,8 +154,8 @@ export default function MentorAttendanceRosterPage({ params }: { params: Promise
                                         key={opt.value}
                                         onClick={() => setStatusMap(prev => ({ ...prev, [student.userId]: opt.value }))}
                                         className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${currentStatus === opt.value
-                                                ? `${opt.color} shadow-sm`
-                                                : 'bg-muted/40 text-muted-foreground hover:bg-muted'
+                                            ? `${opt.color} shadow-sm`
+                                            : 'bg-muted/40 text-muted-foreground hover:bg-muted'
                                             }`}
                                     >
                                         {opt.label}

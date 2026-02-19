@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Loader2, Layers, Users, BookOpen } from 'lucide-react';
+import { Loader2, Layers, Users } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 
@@ -14,7 +14,6 @@ interface CohortItem {
     endDate: string | null;
     studentCount: number;
     capacity: number;
-    courses: Array<{ id: string; title: string }>;
 }
 
 export default function MentorCohortsPage() {
@@ -75,11 +74,7 @@ export default function MentorCohortsPage() {
                             <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-1.5">
                                     <Users className="h-3.5 w-3.5" />
-                                    <span>{cohort.studentCount}/{cohort.capacity}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <BookOpen className="h-3.5 w-3.5" />
-                                    <span>{cohort.courses.length} programs</span>
+                                    <span>{cohort.studentCount}/{cohort.capacity} students</span>
                                 </div>
                             </div>
 

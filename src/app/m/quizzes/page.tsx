@@ -7,15 +7,26 @@ import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 
-interface CourseOption { id: string; title: string }
-interface CohortOption { id: string; name: string; courses: CourseOption[] }
-interface QuizItem { id: string; title: string; timeLimit: number | null; maxAttempts: number; _count: { questions: number; attempts: number }; cohort: { name: string } }
+interface CohortOption {
+    id: string;
+    name: string;
+    programName: string;
+    courses: Array<{ id: string; title: string }>;
+}
+
+interface QuizItem {
+    id: string;
+    title: string;
+    timeLimit: number | null;
+    maxAttempts: number;
+    _count: { questions: number; attempts: number };
+    cohort: { name: string };
+}
 
 export default function MentorQuizzesPage() {
     const { toast } = useToast();
     const [cohorts, setCohorts] = useState<CohortOption[]>([]);
     const [activeCohort, setActiveCohort] = useState('');
-    const [activeCourse, setActiveCourse] = useState('');
     const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
@@ -27,23 +38,39 @@ export default function MentorQuizzesPage() {
                 setCohorts(res.cohorts);
                 if (res.cohorts.length > 0) {
                     setActiveCohort(res.cohorts[0].id);
-                    if (res.cohorts[0].courses.length > 0) setActiveCourse(res.cohorts[0].courses[0].id);
                 }
             })
             .catch(console.error)
             .finally(() => setIsLoading(false));
     }, []);
 
+    // Get the courseId for the active cohort (auto-resolved from program)
+    const getActiveCourseId = (): string | null => {
+        const cohort = cohorts.find(c => c.id === activeCohort);
+        if (!cohort) return null;
+        return cohort.courses.length > 0 ? cohort.courses[0].id : null;
+    };
+
     useEffect(() => {
-        if (!activeCourse) return;
-        apiClient.get<{ quizzes: QuizItem[] }>(`/api/v1/courses/${activeCourse}/quizzes?cohortId=${activeCohort}`)
+        if (!activeCohort) return;
+        const courseId = getActiveCourseId();
+        if (!courseId) {
+            setQuizzes([]);
+            return;
+        }
+        apiClient.get<{ quizzes: QuizItem[] }>(`/api/v1/courses/${courseId}/quizzes?cohortId=${activeCohort}`)
             .then(res => setQuizzes(res.quizzes))
             .catch(console.error);
-    }, [activeCourse, activeCohort]);
+    }, [activeCohort, cohorts]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleCreate = async () => {
+        const courseId = getActiveCourseId();
+        if (!courseId) {
+            toast({ title: 'Error', description: 'No program syllabus configured. Ask your admin to set it up.', variant: 'error' });
+            return;
+        }
         try {
-            await apiClient.post(`/api/v1/courses/${activeCourse}/quizzes`, {
+            await apiClient.post(`/api/v1/courses/${courseId}/quizzes`, {
                 title: form.title,
                 cohortId: activeCohort,
                 timeLimit: form.timeLimit ? Number(form.timeLimit) : null,
@@ -52,9 +79,9 @@ export default function MentorQuizzesPage() {
             toast({ title: 'Created', variant: 'success' });
             setShowCreate(false);
             setForm({ title: '', timeLimit: '', maxAttempts: '1' });
-            const res = await apiClient.get<{ quizzes: QuizItem[] }>(`/api/v1/courses/${activeCourse}/quizzes?cohortId=${activeCohort}`);
+            const res = await apiClient.get<{ quizzes: QuizItem[] }>(`/api/v1/courses/${courseId}/quizzes?cohortId=${activeCohort}`);
             setQuizzes(res.quizzes);
-        } catch { toast({ title: 'Error', variant: 'error' }); }
+        } catch { toast({ title: 'Error', description: 'Failed to create quiz.', variant: 'error' }); }
     };
 
     const currentCohort = cohorts.find(c => c.id === activeCohort);
@@ -66,7 +93,7 @@ export default function MentorQuizzesPage() {
             <div className="space-y-6">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Quizzes</h1>
-                    <p className="text-muted-foreground mt-1">Create and manage program quizzes</p>
+                    <p className="text-muted-foreground mt-1">Create and manage quizzes</p>
                 </div>
                 <div className="rounded-xl border border-dashed border-border/60 p-12 text-center">
                     <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
@@ -82,28 +109,25 @@ export default function MentorQuizzesPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Quizzes</h1>
-                    <p className="text-muted-foreground mt-1">Create and manage course quizzes</p>
+                    <p className="text-muted-foreground mt-1">Create and manage quizzes</p>
                 </div>
                 <Button onClick={() => setShowCreate(!showCreate)} className="gap-2"><Plus className="h-4 w-4" /> New Quiz</Button>
             </div>
 
+            {/* Cohort tabs */}
             <div className="flex gap-2 flex-wrap">
                 {cohorts.map(c => (
-                    <button key={c.id} onClick={() => { setActiveCohort(c.id); if (c.courses.length) setActiveCourse(c.courses[0].id); }}
+                    <button key={c.id} onClick={() => setActiveCohort(c.id)}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeCohort === c.id ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'}`}>
                         {c.name}
                     </button>
                 ))}
             </div>
 
-            {currentCohort && currentCohort.courses.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                    {currentCohort.courses.map(c => (
-                        <button key={c.id} onClick={() => setActiveCourse(c.id)}
-                            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${activeCourse === c.id ? 'bg-violet-500/10 text-violet-600' : 'text-muted-foreground hover:bg-muted/50'}`}>
-                            {c.title}
-                        </button>
-                    ))}
+            {/* Program info */}
+            {currentCohort && (
+                <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg">
+                    Program: <span className="font-medium text-foreground">{currentCohort.programName}</span>
                 </div>
             )}
 
