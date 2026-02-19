@@ -33,7 +33,8 @@ export async function GET(req: NextRequest) {
             prisma.program.findMany({
                 where,
                 include: {
-                    _count: { select: { cohorts: true } }
+                    course: { select: { id: true, title: true, isPublished: true, _count: { select: { modules: true, enrollments: true } } } },
+                    _count: { select: { cohorts: true } },
                 },
                 orderBy: { createdAt: 'desc' },
                 skip: (page - 1) * limit,
@@ -80,9 +81,26 @@ export const POST = withAuth(
                 },
             });
 
+            const course = await prisma.course.create({
+                data: {
+                    title: parsed.data.name,
+                    slug: `${slug}-course-${Date.now()}`,
+                    description: parsed.data.description || '',
+                    createdBy: user.id,
+                },
+            });
+
+            const linked = await prisma.program.update({
+                where: { id: program.id },
+                data: { courseId: course.id },
+                include: {
+                    course: { select: { id: true, title: true, isPublished: true, _count: { select: { modules: true } } } },
+                },
+            });
+
             await logAudit(user.id, 'PROGRAM_CREATED', 'Program', program.id);
 
-            return apiSuccess(program, 201);
+            return apiSuccess(linked, 201);
         } catch (error) {
             return handleApiError(error);
         }

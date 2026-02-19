@@ -42,11 +42,11 @@ export const GET = withAuth(async (_req, _ctx, user) => {
     }
 });
 
-// PATCH /api/v1/me/profile — update student profile fields
+// PATCH /api/v1/me/profile — update profile fields (student or mentor)
 export const PATCH = withAuth(async (req: NextRequest, _ctx, user) => {
     try {
         const body = await req.json();
-        const { name, phone, whatsappOptIn } = body;
+        const { name, phone, whatsappOptIn, bio, specialization } = body;
 
         // Update user name if provided
         if (name && typeof name === 'string' && name.trim()) {
@@ -74,6 +74,24 @@ export const PATCH = withAuth(async (req: NextRequest, _ctx, user) => {
             }
         }
 
+        // Update mentor profile fields if provided
+        const mentorProfile = await prisma.mentorProfile.findUnique({
+            where: { userId: user.id },
+        });
+
+        if (mentorProfile) {
+            const mentorUpdate: Record<string, unknown> = {};
+            if (bio !== undefined) mentorUpdate.bio = bio || null;
+            if (specialization !== undefined) mentorUpdate.specialization = specialization || null;
+
+            if (Object.keys(mentorUpdate).length > 0) {
+                await prisma.mentorProfile.update({
+                    where: { userId: user.id },
+                    data: mentorUpdate,
+                });
+            }
+        }
+
         // Return updated profile
         const updated = await prisma.user.findUnique({
             where: { id: user.id },
@@ -91,6 +109,7 @@ export const PATCH = withAuth(async (req: NextRequest, _ctx, user) => {
                         },
                     },
                 },
+                mentorProfile: true,
             },
         });
 

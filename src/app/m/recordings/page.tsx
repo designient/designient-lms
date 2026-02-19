@@ -59,6 +59,22 @@ export default function MentorRecordingsPage() {
 
     if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
+    if (courses.length === 0) {
+        return (
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground">Class Recordings</h1>
+                    <p className="text-muted-foreground mt-1">Manage YouTube recordings for your programs</p>
+                </div>
+                <div className="rounded-xl border border-dashed border-border/60 p-12 text-center">
+                    <Video className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                    <p className="text-sm font-medium text-foreground mb-1">No programs linked yet</p>
+                    <p className="text-xs text-muted-foreground">Ask your admin to assign programs to your cohorts to start adding recordings.</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">

@@ -61,6 +61,22 @@ export default function MentorQuizzesPage() {
 
     if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
+    if (cohorts.length === 0) {
+        return (
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground">Quizzes</h1>
+                    <p className="text-muted-foreground mt-1">Create and manage program quizzes</p>
+                </div>
+                <div className="rounded-xl border border-dashed border-border/60 p-12 text-center">
+                    <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                    <p className="text-sm font-medium text-foreground mb-1">No cohorts assigned yet</p>
+                    <p className="text-xs text-muted-foreground">Ask your admin to assign cohorts to start creating quizzes.</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">

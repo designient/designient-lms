@@ -2,19 +2,15 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-// Admin/instructor-only routes
 const ADMIN_ROUTES = ['/dashboard', '/programs', '/cohorts', '/students', '/mentors', '/settings', '/analytics', '/communications'];
 
-// Student-only routes
 const STUDENT_ROUTES = ['/s/'];
 
-// Public routes (no auth required)
 const PUBLIC_ROUTES = ['/login', '/signup', '/forgot-password', '/reset-password', '/auth/setup-account'];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
-    // Allow API routes, static assets, uploads, and the root redirect
     if (
         pathname.startsWith('/api/') ||
         pathname.startsWith('/_next') ||
@@ -25,7 +21,6 @@ export async function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    // Allow public routes (login, signup, password reset, etc.)
     if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
         return NextResponse.next();
     }
@@ -37,14 +32,12 @@ export async function middleware(req: NextRequest) {
     });
     const role = token?.role as string | undefined;
 
-    // Not authenticated — redirect to login
     if (!token) {
         const loginUrl = new URL('/login', req.url);
         loginUrl.searchParams.set('callbackUrl', pathname);
         return NextResponse.redirect(loginUrl);
     }
 
-    // Student trying to access admin or mentor routes
     if (
         (ADMIN_ROUTES.some((route) => pathname.startsWith(route)) || pathname.startsWith('/m/')) &&
         role === 'STUDENT'
@@ -52,17 +45,14 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(new URL('/s/dashboard', req.url));
     }
 
-    // Admin trying to access student routes
     if (STUDENT_ROUTES.some((route) => pathname.startsWith(route)) && role === 'ADMIN') {
         return NextResponse.redirect(new URL('/dashboard', req.url));
     }
 
-    // Instructor trying to access student routes
     if (STUDENT_ROUTES.some((route) => pathname.startsWith(route)) && role === 'INSTRUCTOR') {
         return NextResponse.redirect(new URL('/m/dashboard', req.url));
     }
 
-    // Instructor trying to access admin-only routes (redirect to mentor portal)
     if (ADMIN_ROUTES.some((route) => pathname.startsWith(route)) && role === 'INSTRUCTOR') {
         return NextResponse.redirect(new URL('/m/dashboard', req.url));
     }

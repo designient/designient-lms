@@ -29,6 +29,7 @@ const statusFromApi: Record<string, Program['status']> = { 'ACTIVE': 'Active', '
 
 function normalizeProgram(raw: Record<string, unknown>): Program {
     const s = String(raw.status || 'DRAFT');
+    const course = raw.course as Program['course'] | undefined;
     return {
         id: String(raw.id),
         name: String(raw.name || ''),
@@ -37,6 +38,8 @@ function normalizeProgram(raw: Record<string, unknown>): Program {
         status: statusFromApi[s] || s as Program['status'],
         cohortCount: (raw._count as { cohorts?: number })?.cohorts ?? (raw.cohortCount as number ?? 0),
         createdAt: String(raw.createdAt || ''),
+        courseId: raw.courseId as string | null | undefined,
+        course: course || null,
     };
 }
 

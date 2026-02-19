@@ -67,9 +67,10 @@ export const POST = withAuth(
                 return apiError('Validation failed', 422, 'VALIDATION_ERROR', formatZodErrors(parsed.error));
             }
 
-            // Verify program exists
+            // Verify program exists and get its linked course
             const program = await prisma.program.findUnique({
-                where: { id: parsed.data.programId }
+                where: { id: parsed.data.programId },
+                select: { id: true, courseId: true },
             });
 
             if (!program) {
@@ -84,6 +85,15 @@ export const POST = withAuth(
                     enrollmentDeadline: parsed.data.enrollmentDeadline ? new Date(parsed.data.enrollmentDeadline) : null,
                 },
             });
+
+            // Auto-assign the Program's Course to this Cohort
+            if (program.courseId) {
+                await prisma.cohortCourse.create({
+                    data: { cohortId: cohort.id, courseId: program.courseId },
+                }).catch(() => {
+                    // Ignore if already exists (shouldn't happen on create, but safety)
+                });
+            }
 
             await logAudit(user.id, 'COHORT_CREATED', 'Cohort', cohort.id);
 

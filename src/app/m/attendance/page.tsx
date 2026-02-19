@@ -29,6 +29,15 @@ export default function MentorAttendancePage() {
     const [creating, setCreating] = useState(false);
     const [form, setForm] = useState({ courseId: '', title: '', scheduledAt: '', duration: '60' });
 
+    // Auto-select first course when active cohort changes
+    useEffect(() => {
+        if (!activeCohort) return;
+        const cohort = cohorts.find(c => c.id === activeCohort);
+        if (cohort?.courses?.length) {
+            setForm(f => ({ ...f, courseId: cohort.courses[0].id }));
+        }
+    }, [activeCohort, cohorts]);
+
     useEffect(() => {
         apiClient.get<{ cohorts: CohortOption[] }>('/api/v1/instructor/cohorts')
             .then(res => {
@@ -107,8 +116,10 @@ export default function MentorAttendancePage() {
                             onChange={e => setForm(f => ({ ...f, courseId: e.target.value }))}
                             className="px-3 py-2 rounded-lg border border-border/60 bg-background text-sm"
                         >
-                            <option value="">Select Course</option>
-                            {currentCohort.courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                            <option value="">Select Course / Program</option>
+                            {currentCohort.courses.map(c => (
+                                <option key={c.id} value={c.id}>{c.title}</option>
+                            ))}
                         </select>
                         <input
                             type="text"

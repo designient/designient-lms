@@ -64,9 +64,9 @@ export default function MentorCohortsPage() {
                                     <p className="text-xs text-muted-foreground mt-1">{cohort.programName}</p>
                                 </div>
                                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${cohort.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600' :
-                                        cohort.status === 'UPCOMING' ? 'bg-blue-500/10 text-blue-600' :
-                                            cohort.status === 'COMPLETED' ? 'bg-amber-500/10 text-amber-600' :
-                                                'bg-muted text-muted-foreground'
+                                    cohort.status === 'UPCOMING' ? 'bg-blue-500/10 text-blue-600' :
+                                        cohort.status === 'COMPLETED' ? 'bg-amber-500/10 text-amber-600' :
+                                            'bg-muted text-muted-foreground'
                                     }`}>
                                     {cohort.status}
                                 </span>
@@ -79,7 +79,7 @@ export default function MentorCohortsPage() {
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <BookOpen className="h-3.5 w-3.5" />
-                                    <span>{cohort.courses.length} courses</span>
+                                    <span>{cohort.courses.length} programs</span>
                                 </div>
                             </div>
 

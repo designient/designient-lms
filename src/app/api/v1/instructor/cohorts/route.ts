@@ -12,7 +12,13 @@ export const GET = withAuth(
                 include: {
                     cohorts: {
                         include: {
-                            program: { select: { id: true, name: true } },
+                            program: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    course: { select: { id: true, title: true, slug: true } },
+                                },
+                            },
                             _count: { select: { students: true } },
                             courses: {
                                 include: {
@@ -25,21 +31,32 @@ export const GET = withAuth(
                 },
             });
 
-            const cohorts = (mentor?.cohorts || []).map(c => ({
-                id: c.id,
-                name: c.name,
-                status: c.status,
-                programName: c.program?.name || '',
-                startDate: c.startDate,
-                endDate: c.endDate,
-                studentCount: c._count.students,
-                capacity: c.capacity,
-                courses: c.courses.map(cc => ({
+            const cohorts = (mentor?.cohorts || []).map(c => {
+                // Use CohortCourse list, or fallback to Program's linked course when empty
+                const fromCohortCourses = c.courses.map(cc => ({
                     id: cc.course.id,
                     title: cc.course.title,
                     slug: cc.course.slug,
-                })),
-            }));
+                }));
+                const programCourse = c.program?.course;
+                const courses =
+                    fromCohortCourses.length > 0
+                        ? fromCohortCourses
+                        : programCourse
+                            ? [{ id: programCourse.id, title: programCourse.title, slug: programCourse.slug }]
+                            : [];
+                return {
+                    id: c.id,
+                    name: c.name,
+                    status: c.status,
+                    programName: c.program?.name || '',
+                    startDate: c.startDate,
+                    endDate: c.endDate,
+                    studentCount: c._count.students,
+                    capacity: c.capacity,
+                    courses,
+                };
+            });
 
             return apiSuccess({ cohorts });
         } catch (error) {

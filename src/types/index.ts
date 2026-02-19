@@ -6,6 +6,13 @@ export interface Program {
     status: 'Active' | 'Draft' | 'Archived';
     cohortCount: number;
     createdAt: string;
+    courseId?: string | null;
+    course?: {
+        id: string;
+        title: string;
+        isPublished: boolean;
+        _count: { modules: number; enrollments: number };
+    } | null;
 }
 
 export interface StudentNote {

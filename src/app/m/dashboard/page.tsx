@@ -36,7 +36,7 @@ export default function MentorDashboardPage() {
     const statCards = [
         { label: 'Active Cohorts', value: stats?.activeCohorts ?? 0, icon: Layers, color: 'from-violet-500 to-purple-600' },
         { label: 'Total Students', value: stats?.totalStudents ?? 0, icon: Users, color: 'from-emerald-500 to-teal-600' },
-        { label: 'Courses', value: stats?.totalCourses ?? 0, icon: BookOpen, color: 'from-blue-500 to-indigo-600' },
+        { label: 'Programs', value: stats?.totalCourses ?? 0, icon: BookOpen, color: 'from-blue-500 to-indigo-600' },
         { label: 'Pending Reviews', value: stats?.pendingSubmissions ?? 0, icon: FileText, color: 'from-amber-500 to-orange-600' },
     ];
 
@@ -85,8 +85,8 @@ export default function MentorDashboardPage() {
                                 </div>
                             </div>
                             <span className={`text-xs px-2 py-1 rounded-full font-medium ${cohort.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600' :
-                                    cohort.status === 'UPCOMING' ? 'bg-blue-500/10 text-blue-600' :
-                                        'bg-muted text-muted-foreground'
+                                cohort.status === 'UPCOMING' ? 'bg-blue-500/10 text-blue-600' :
+                                    'bg-muted text-muted-foreground'
                                 }`}>
                                 {cohort.status}
                             </span>

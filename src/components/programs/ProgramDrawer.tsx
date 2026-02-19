@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { DrawerSection, DrawerDivider } from '../ui/Drawer';
@@ -12,7 +13,10 @@ import {
     AlertTriangle,
     Copy,
     Trash2,
-    RotateCcw
+    RotateCcw,
+    Hammer,
+    FileText,
+    Users
 } from 'lucide-react';
 import { Program } from '../../types';
 
@@ -33,6 +37,7 @@ export function ProgramDrawer({
     onDuplicate,
     onRestore
 }: ProgramDrawerProps) {
+    const router = useRouter();
     const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -145,6 +150,45 @@ export function ProgramDrawer({
                         <p className="text-sm text-muted-foreground leading-relaxed">
                             {program.description}
                         </p>
+                    </DrawerSection>
+                    <DrawerDivider />
+                </>
+            )}
+
+            {/* Course Content */}
+            {program.course && (
+                <>
+                    <DrawerSection title="Course Content">
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                        <FileText className="h-4 w-4 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-medium text-foreground block">{program.course.title}</span>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <Badge variant={program.course.isPublished ? 'success' : 'neutral'} className="text-[10px] px-1.5 py-0">
+                                                {program.course.isPublished ? 'Published' : 'Draft'}
+                                            </Badge>
+                                            <span className="text-xs text-muted-foreground">
+                                                {program.course._count.modules} modules
+                                            </span>
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                <Users className="h-3 w-3" /> {program.course._count.enrollments} enrolled
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={() => router.push(`/dashboard/courses/${program.course!.id}/builder`)}
+                                className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                <Hammer className="h-4 w-4" />
+                                Build Course Content
+                            </Button>
+                        </div>
                     </DrawerSection>
                     <DrawerDivider />
                 </>

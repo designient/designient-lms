@@ -15,6 +15,7 @@ export async function GET(
         const program = await prisma.program.findUnique({
             where: { id: programId },
             include: {
+                course: { select: { id: true, title: true, isPublished: true, _count: { select: { modules: true, enrollments: true } } } },
                 cohorts: {
                     take: 5,
                     orderBy: { startDate: 'desc' }

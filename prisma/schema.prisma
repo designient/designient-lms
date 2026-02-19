@@ -173,6 +173,7 @@ model Course {
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
   creator       User             @relation("CourseCreator", fields: [createdBy], references: [id])
+  program       Program?
   modules       Module[]
   enrollments   Enrollment[]
   cohortCourses CohortCourse[]
@@ -337,10 +338,12 @@ model Program {
   slug        String        @unique
   description String?
   duration    String?
+  courseId     String?       @unique @map("course_id")
   status      ProgramStatus @default(DRAFT)
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
+  course      Course?       @relation(fields: [courseId], references: [id])
   cohorts     Cohort[]
 
   @@map("programs")
