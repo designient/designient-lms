@@ -54,7 +54,6 @@ export default function ProgramsPage() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [drawerMode, setDrawerMode] = useState<DrawerMode>('view');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [availableCourses, setAvailableCourses] = useState<Array<{ id: string; title: string }>>([]);
     const [isSyllabusUpdating, setIsSyllabusUpdating] = useState(false);
 
     const fetchPrograms = useCallback(async () => {
@@ -78,19 +77,14 @@ export default function ProgramsPage() {
         fetchPrograms();
     }, [fetchPrograms]);
 
-    useEffect(() => {
-        apiClient.get<{ courses: Array<{ id: string; title: string }> }>('/api/v1/courses?limit=200')
-            .then((res) => setAvailableCourses(res.courses.map((c) => ({ id: c.id, title: c.title }))))
-            .catch(() => setAvailableCourses([]));
-    }, []);
-
     const filteredPrograms = useMemo(() => {
         return programs.filter((program) => {
             const matchesSearch = program.name
                 .toLowerCase()
                 .includes(searchQuery.toLowerCase());
             const matchesFilter =
-                activeFilter === 'All' || program.status === activeFilter;
+                activeFilter === 'All' ||
+                String(program.status).toLowerCase() === String(activeFilter).toLowerCase();
             return matchesSearch && matchesFilter;
         });
     }, [programs, searchQuery, activeFilter]);
@@ -103,6 +97,84 @@ export default function ProgramsPage() {
         setSelectedProgram(program);
         setDrawerMode('view');
         setIsDrawerOpen(true);
+    };
+
+    const handleProgramMenuEdit = (program: Program) => {
+        setSelectedProgram(program);
+        setDrawerMode('edit');
+        setIsDrawerOpen(true);
+    };
+
+    const updateProgramStatus = async (
+        program: Program,
+        nextStatus: 'ARCHIVED' | 'DRAFT',
+        successTitle: string,
+        successDescription: string
+    ) => {
+        try {
+            await apiClient.put(`/api/v1/programs/${program.id}`, {
+                status: nextStatus,
+            });
+
+            const updatedProgram: Program = {
+                ...program,
+                status: nextStatus === 'ARCHIVED' ? 'Archived' : 'Draft',
+            };
+
+            setPrograms((prev) => prev.map((p) => (p.id === program.id ? updatedProgram : p)));
+            setSelectedProgram((prev) => (prev?.id === program.id ? updatedProgram : prev));
+            toast({
+                title: successTitle,
+                description: successDescription,
+                variant: 'success',
+            });
+        } catch (error) {
+            toast({
+                title: 'Status Update Failed',
+                description: error instanceof Error ? error.message : 'Failed to update program status.',
+                variant: 'error',
+            });
+        }
+    };
+
+    const handleProgramMenuArchive = async (program: Program) => {
+        await updateProgramStatus(
+            program,
+            'ARCHIVED',
+            'Program Archived',
+            `${program.name} is now archived.`
+        );
+    };
+
+    const handleProgramMenuMoveToDraft = async (program: Program) => {
+        await updateProgramStatus(
+            program,
+            'DRAFT',
+            'Program Moved to Draft',
+            `${program.name} is now in draft status.`
+        );
+    };
+
+    const handleProgramMenuDelete = async (program: Program) => {
+        const confirmed = window.confirm(`Delete "${program.name}" permanently? This action cannot be undone.`);
+        if (!confirmed) return;
+
+        try {
+            await apiClient.delete(`/api/v1/programs/${program.id}`);
+            setPrograms((prev) => prev.filter((p) => p.id !== program.id));
+            setSelectedProgram((prev) => (prev?.id === program.id ? null : prev));
+            toast({
+                title: 'Program Deleted',
+                description: `${program.name} has been permanently deleted.`,
+                variant: 'success'
+            });
+        } catch (error) {
+            toast({
+                title: 'Delete Failed',
+                description: error instanceof Error ? error.message : 'Failed to delete program.',
+                variant: 'error'
+            });
+        }
     };
 
     const handleCreateClick = () => {
@@ -340,6 +412,10 @@ export default function ProgramsPage() {
                     <ProgramsTable
                         programs={filteredPrograms}
                         onProgramClick={handleProgramClick}
+                        onEditProgram={handleProgramMenuEdit}
+                        onArchiveProgram={handleProgramMenuArchive}
+                        onMoveProgramToDraft={handleProgramMenuMoveToDraft}
+                        onDeleteProgram={handleProgramMenuDelete}
                     />
                 )}
 
@@ -372,7 +448,6 @@ export default function ProgramsPage() {
                             onRestore={
                                 selectedProgram.status === 'Archived' ? handleRestore : undefined
                             }
-                            availableCourses={availableCourses}
                             isSyllabusUpdating={isSyllabusUpdating}
                             onCreateSyllabusCourse={async () => {
                                 if (!selectedProgram) return;
@@ -389,27 +464,6 @@ export default function ProgramsPage() {
                                     toast({
                                         title: 'Error',
                                         description: error instanceof Error ? error.message : 'Failed to create syllabus.',
-                                        variant: 'error',
-                                    });
-                                } finally {
-                                    setIsSyllabusUpdating(false);
-                                }
-                            }}
-                            onLinkSyllabusCourse={async (courseId: string) => {
-                                if (!selectedProgram) return;
-                                try {
-                                    setIsSyllabusUpdating(true);
-                                    const raw = await apiClient.post<Record<string, unknown>>(`/api/v1/programs/${selectedProgram.id}/syllabus`, { courseId });
-                                    upsertProgramInState(raw);
-                                    toast({
-                                        title: 'Syllabus Linked',
-                                        description: 'Program syllabus course updated successfully.',
-                                        variant: 'success',
-                                    });
-                                } catch (error) {
-                                    toast({
-                                        title: 'Error',
-                                        description: error instanceof Error ? error.message : 'Failed to link syllabus.',
                                         variant: 'error',
                                     });
                                 } finally {

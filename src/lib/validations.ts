@@ -32,10 +32,8 @@ export const changePasswordSchema = z.object({
     currentPassword: z.string().min(1, 'Current password is required'),
     newPassword: z
         .string()
-        .min(8, 'New password must be at least 8 characters')
-        .max(128)
-        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-        .regex(/[0-9]/, 'Password must contain at least one number'),
+        .min(1, 'New password is required')
+        .max(128),
 });
 
 export const updateProfileSchema = z.object({
@@ -121,6 +119,7 @@ export const mentorProfileSchema = z.object({
     bio: z.string().max(2000).optional(),
     maxCohorts: z.number().int().min(0).optional(),
     status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+    availabilityStatus: z.enum(['AVAILABLE', 'LIMITED', 'UNAVAILABLE']).optional(),
     cohortIds: z.array(z.string()).optional(),
 });
 export const mentorProfileUpdateSchema = mentorProfileSchema.partial();
@@ -146,15 +145,58 @@ export const messageSchema = z.object({
 });
 
 // Settings Schemas
+const billingSettingsSchema = z
+    .object({
+        country: z.string().min(2).max(4).optional(),
+        timezone: z.string().min(2).max(100).optional(),
+    })
+    .catchall(z.union([z.string(), z.number(), z.boolean(), z.null()]));
+
+const securitySettingsSchema = z.object({
+    whatsappEnabled: z.boolean().optional(),
+    emailEnabled: z.boolean().optional(),
+    smsEnabled: z.boolean().optional(),
+    pushEnabled: z.boolean().optional(),
+    minPasswordLength: z.number().int().min(6).max(32).optional(),
+    requireUppercase: z.boolean().optional(),
+    requireNumbers: z.boolean().optional(),
+    requireSpecialChars: z.boolean().optional(),
+    sessionTimeout: z.enum(['15m', '30m', '1h', '4h', '24h']).optional(),
+    maxLoginAttempts: z.number().int().min(3).max(10).optional(),
+    lockoutMinutes: z.number().int().min(5).max(120).optional(),
+}).strict();
+
+const catalogSettingsSchema = z.object({
+    mentorSpecialties: z.array(
+        z.object({
+            value: z.string().min(1).max(100),
+            label: z.string().min(1).max(100),
+        }).strict()
+    ).optional(),
+}).strict();
+
+const integrationSettingsSchema = z.object({
+    zoomEnabled: z.boolean().optional(),
+    zoomApiKey: z.string().max(300).optional(),
+    zoomApiSecret: z.string().max(300).optional(),
+    meetEnabled: z.boolean().optional(),
+    meetClientId: z.string().max(300).optional(),
+    whatsappBizEnabled: z.boolean().optional(),
+    whatsappBizPhone: z.string().max(50).optional(),
+    whatsappBizToken: z.string().max(500).optional(),
+    webhookUrl: z.union([z.string().url().max(500), z.literal('')]).optional(),
+    webhookEnabled: z.boolean().optional(),
+}).strict();
+
 export const settingsSchema = z.object({
     orgName: z.string().min(2).max(100).optional(),
     orgSlug: z.string().min(2).max(50).optional(),
     supportEmail: z.string().email().optional().nullable(),
     primaryColor: z.string().regex(/^#([0-9a-f]{3}){1,2}$/i).optional().nullable(),
-    billingSettings: z.record(z.string(), z.any()).optional(),
-    securitySettings: z.record(z.string(), z.any()).optional(),
-    catalogSettings: z.record(z.string(), z.any()).optional(),
-    integrationSettings: z.record(z.string(), z.any()).optional(),
+    billingSettings: billingSettingsSchema.optional(),
+    securitySettings: securitySettingsSchema.optional(),
+    catalogSettings: catalogSettingsSchema.optional(),
+    integrationSettings: integrationSettingsSchema.optional(),
 });
 
 // Subscription Schemas

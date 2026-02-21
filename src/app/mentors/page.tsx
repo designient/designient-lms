@@ -35,14 +35,18 @@ interface ApiMentor {
     avatarUrl?: string;
     specialization?: string;
     status: string;
+    availabilityStatus?: 'AVAILABLE' | 'LIMITED' | 'UNAVAILABLE';
     cohortCount?: number;
     maxCohorts?: number;
     rating?: number;
+    totalReviews?: number;
+    totalStudentsMentored?: number;
     bio?: string;
     phone?: string;
     whatsappOptIn?: boolean;
     cohorts?: Array<{ id: string; name: string; status: string }>;
     joinDate?: string;
+    lastActive?: string;
 }
 
 function transformMentor(raw: ApiMentor): Mentor {
@@ -51,6 +55,11 @@ function transformMentor(raw: ApiMentor): Mentor {
         'INACTIVE': 'Inactive',
         'Active': 'Active',
         'Inactive': 'Inactive',
+    };
+    const availabilityMap: Record<string, Mentor['availabilityStatus']> = {
+        AVAILABLE: 'Available',
+        LIMITED: 'Limited',
+        UNAVAILABLE: 'Unavailable',
     };
 
     const assignedCohorts: AssignedCohort[] = (raw.cohorts || []).map(c => ({
@@ -63,21 +72,28 @@ function transformMentor(raw: ApiMentor): Mentor {
         id: raw.id,
         name: raw.name || '',
         email: raw.email || '',
+        avatarUrl: raw.avatarUrl || null,
         phone: raw.phone,
         whatsappOptIn: raw.whatsappOptIn,
         status: statusMap[raw.status] || 'Active',
         assignedCohorts,
-        lastActive: '',
+        lastActive: raw.lastActive
+            ? new Date(raw.lastActive).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : 'Not available',
         joinDate: raw.joinDate
             ? new Date(raw.joinDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : '',
+            : 'Not available',
         specialty: raw.specialization || '',
         bio: raw.bio,
         maxCohorts: raw.maxCohorts ?? 3,
         rating: raw.rating ?? 0,
-        totalReviews: 0,
-        totalStudentsMentored: 0,
-        availabilityStatus: (raw.cohortCount ?? 0) >= (raw.maxCohorts ?? 3) ? 'Unavailable' : 'Available',
+        totalReviews: raw.totalReviews ?? 0,
+        totalStudentsMentored: raw.totalStudentsMentored ?? 0,
+        availabilityStatus: raw.availabilityStatus
+            ? availabilityMap[raw.availabilityStatus] || 'Available'
+            : (raw.cohortCount ?? 0) >= (raw.maxCohorts ?? 3)
+                ? 'Unavailable'
+                : 'Available',
     };
 }
 
@@ -196,6 +212,7 @@ export default function MentorsPage() {
                 bio: updatedMentor.bio,
                 maxCohorts: updatedMentor.maxCohorts,
                 status: updatedMentor.status === 'Active' ? 'ACTIVE' : 'INACTIVE',
+                availabilityStatus: updatedMentor.availabilityStatus.toUpperCase(),
                 cohortIds: updatedMentor.assignedCohorts.map(c => c.id)
             };
 
@@ -240,7 +257,7 @@ export default function MentorsPage() {
                 description: `${selectedMentor.name} is now inactive.`,
                 variant: 'warning'
             });
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Error',
                 description: 'Failed to deactivate mentor.',
@@ -260,7 +277,7 @@ export default function MentorsPage() {
                 variant: 'success'
             });
             handleCloseDrawer();
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Error',
                 description: 'Failed to remove mentor.',
@@ -287,6 +304,7 @@ export default function MentorsPage() {
                 const payload = {
                     email: data.email,
                     name: data.name,
+                    avatarUrl: data.avatarUrl || undefined,
                     phone: data.phone || undefined,
                     whatsappOptIn: data.whatsappOptIn,
                     specialization: specLabels.join(', '),
@@ -305,6 +323,9 @@ export default function MentorsPage() {
             } else if (drawerMode === 'edit' && selectedMentor) {
                 const editSpecLabels = data.specialty.map(v => specialtyOptions.find(s => s.value === v)?.label || v);
                 const payload = {
+                    name: data.name,
+                    email: data.email,
+                    avatarUrl: data.avatarUrl || null,
                     specialization: editSpecLabels.join(', '),
                     maxCohorts: data.maxCohorts,
                     bio: data.bio || undefined,
@@ -316,6 +337,7 @@ export default function MentorsPage() {
                     ...selectedMentor,
                     name: data.name,
                     email: data.email,
+                    avatarUrl: data.avatarUrl || null,
                     phone: data.phone || undefined,
                     whatsappOptIn: data.whatsappOptIn,
                     status: data.status,
@@ -357,6 +379,7 @@ export default function MentorsPage() {
         return {
             name: mentor.name,
             email: mentor.email,
+            avatarUrl: mentor.avatarUrl || '',
             phone: mentor.phone || '',
             whatsappOptIn: mentor.whatsappOptIn ?? true,
             specialty: values,

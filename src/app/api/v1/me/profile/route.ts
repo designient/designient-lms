@@ -14,6 +14,8 @@ export const GET = withAuth(async (_req, _ctx, user) => {
                 email: true,
                 role: true,
                 avatarUrl: true,
+                emailNotifications: true,
+                pushNotifications: true,
                 createdAt: true,
                 studentProfile: {
                     include: {
@@ -46,13 +48,38 @@ export const GET = withAuth(async (_req, _ctx, user) => {
 export const PATCH = withAuth(async (req: NextRequest, _ctx, user) => {
     try {
         const body = await req.json();
-        const { name, phone, whatsappOptIn, bio, specialization } = body;
+        const { name, phone, whatsappOptIn, bio, specialization, avatarUrl, emailNotifications, pushNotifications } = body;
 
         // Update user name if provided
+        const userUpdate: Record<string, unknown> = {};
         if (name && typeof name === 'string' && name.trim()) {
+            userUpdate.name = name.trim();
+        }
+        if (avatarUrl !== undefined) {
+            if (avatarUrl === null || avatarUrl === '') {
+                userUpdate.avatarUrl = null;
+            } else if (typeof avatarUrl === 'string') {
+                userUpdate.avatarUrl = avatarUrl;
+            } else {
+                return apiError('Invalid avatarUrl', 422, 'VALIDATION_ERROR');
+            }
+        }
+        if (emailNotifications !== undefined) {
+            if (typeof emailNotifications !== 'boolean') {
+                return apiError('Invalid emailNotifications', 422, 'VALIDATION_ERROR');
+            }
+            userUpdate.emailNotifications = emailNotifications;
+        }
+        if (pushNotifications !== undefined) {
+            if (typeof pushNotifications !== 'boolean') {
+                return apiError('Invalid pushNotifications', 422, 'VALIDATION_ERROR');
+            }
+            userUpdate.pushNotifications = pushNotifications;
+        }
+        if (Object.keys(userUpdate).length > 0) {
             await prisma.user.update({
                 where: { id: user.id },
-                data: { name: name.trim() },
+                data: userUpdate,
             });
         }
 
@@ -101,6 +128,8 @@ export const PATCH = withAuth(async (req: NextRequest, _ctx, user) => {
                 email: true,
                 role: true,
                 avatarUrl: true,
+                emailNotifications: true,
+                pushNotifications: true,
                 createdAt: true,
                 studentProfile: {
                     include: {

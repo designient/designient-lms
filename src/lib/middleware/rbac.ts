@@ -10,6 +10,7 @@ interface AuthedUser {
     email: string;
     role: Role;
     isActive: boolean;
+    sessionExpiresAt?: string;
 }
 
 // Wraps an API route handler with authentication + role-based access control
@@ -34,6 +35,13 @@ export function withAuth(
 
         if (!user.isActive) {
             return apiError('Account is deactivated', 403, 'ACCOUNT_DEACTIVATED');
+        }
+
+        if (user.sessionExpiresAt) {
+            const expiry = new Date(user.sessionExpiresAt).getTime();
+            if (!Number.isNaN(expiry) && Date.now() > expiry) {
+                return apiError('Session expired', 401, 'SESSION_EXPIRED');
+            }
         }
 
         if (allowedRoles && !allowedRoles.includes(user.role)) {

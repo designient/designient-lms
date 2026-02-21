@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import type { PublicSettingsPayload } from '@/types';
 
 /**
  * Converts a hex color string (#RRGGBB) to HSL string "H S% L%"
@@ -70,10 +71,10 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         async function applyBranding() {
             try {
-                const res = await fetch('/api/v1/settings');
+                const res = await fetch('/api/v1/settings/public');
                 if (!res.ok) return;
                 const json = await res.json();
-                const data = json.data;
+                const data = (json?.data || null) as PublicSettingsPayload | null;
 
                 // Apply primary color as CSS variable
                 const color = data?.primaryColor;

@@ -20,6 +20,7 @@ export const GET = withAuth(
                 completedStudents,
                 totalMentors,
                 activeMentors,
+                totalCourses,
                 recentStudents,
                 topCohorts,
             ] = await Promise.all([
@@ -36,6 +37,7 @@ export const GET = withAuth(
                 prisma.studentProfile.count({ where: { status: 'COMPLETED' } }),
                 prisma.mentorProfile.count(),
                 prisma.mentorProfile.count({ where: { status: 'ACTIVE' } }),
+                prisma.course.count(),
                 prisma.studentProfile.findMany({
                     take: 10,
                     orderBy: { enrollmentDate: 'desc' },
@@ -105,6 +107,10 @@ export const GET = withAuth(
             }));
 
             return apiSuccess({
+                totalStudents,
+                totalMentors,
+                totalCohorts,
+                totalCourses,
                 programs: { total: totalPrograms, active: activePrograms },
                 cohorts: { total: totalCohorts, active: activeCohorts, upcoming: upcomingCohorts },
                 students: {

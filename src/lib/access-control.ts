@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import type { SyllabusBuilderPermissions } from '@/types/syllabus';
 
 export async function isStudentEnrolledInCourse(userId: string, courseId: string): Promise<boolean> {
     const enrollment = await prisma.enrollment.findUnique({
@@ -94,6 +95,83 @@ export async function canInstructorAccessCourse(userId: string, courseId: string
     });
 
     return Boolean(viaProgramCourse);
+}
+
+export async function getSyllabusBuilderPermissions(
+    userId: string,
+    role: 'STUDENT' | 'INSTRUCTOR' | 'ADMIN',
+    courseId: string
+): Promise<SyllabusBuilderPermissions> {
+    const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        select: {
+            id: true,
+            program: { select: { id: true } },
+        },
+    });
+
+    if (!course) {
+        return {
+            canAccess: false,
+            canEditLive: false,
+            canEditDraft: false,
+            canApprove: false,
+            role: 'NONE',
+            reason: 'Course not found',
+        };
+    }
+
+    if (!course.program) {
+        return {
+            canAccess: false,
+            canEditLive: false,
+            canEditDraft: false,
+            canApprove: false,
+            role: 'NONE',
+            reason: 'Only program-linked syllabus courses can be edited here',
+        };
+    }
+
+    if (role === 'ADMIN') {
+        return {
+            canAccess: true,
+            canEditLive: true,
+            canEditDraft: true,
+            canApprove: true,
+            role: 'ADMIN',
+        };
+    }
+
+    if (role !== 'INSTRUCTOR') {
+        return {
+            canAccess: false,
+            canEditLive: false,
+            canEditDraft: false,
+            canApprove: false,
+            role: 'NONE',
+            reason: 'Students cannot access syllabus builder',
+        };
+    }
+
+    const canAccess = await canInstructorAccessCourse(userId, courseId);
+    if (!canAccess) {
+        return {
+            canAccess: false,
+            canEditLive: false,
+            canEditDraft: false,
+            canApprove: false,
+            role: 'NONE',
+            reason: 'You are not assigned to this syllabus',
+        };
+    }
+
+    return {
+        canAccess: true,
+        canEditLive: false,
+        canEditDraft: true,
+        canApprove: false,
+        role: 'MENTOR',
+    };
 }
 
 export async function canInstructorAccessAssignment(

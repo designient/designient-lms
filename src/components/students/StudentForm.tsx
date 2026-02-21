@@ -6,12 +6,15 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { DrawerSection, DrawerDivider } from '@/components/ui/Drawer';
-import { AlertCircle, Mail, MessageCircle } from 'lucide-react';
+import { AlertCircle, Mail, MessageCircle, Camera, Loader2 } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
+import { useToast } from '@/components/ui/Toast';
 
 // Types
 export interface StudentFormData {
     name: string;
     email: string;
+    avatarUrl: string;
     phone: string;
     alternatePhone: string;
     whatsappOptIn: boolean;
@@ -49,6 +52,7 @@ const paymentOptions = [
 const defaultFormData: StudentFormData = {
     name: '',
     email: '',
+    avatarUrl: '',
     phone: '',
     alternatePhone: '',
     whatsappOptIn: true,
@@ -66,10 +70,12 @@ export function StudentForm({
     cohortOptions = [],
     mentorOptions = [],
 }: StudentFormProps) {
+    const { toast } = useToast();
     const [formData, setFormData] = useState<StudentFormData>({
         ...defaultFormData,
         ...initialData,
     });
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
     const [errors, setErrors] = useState<
         Partial<Record<keyof StudentFormData, string>>
@@ -86,6 +92,34 @@ export function StudentForm({
             });
         }
     }, [initialData]);
+
+    const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+
+        setIsUploadingAvatar(true);
+        try {
+            const response = await apiClient.upload<{ avatarUrl: string }>('/api/v1/uploads/avatar', formDataUpload);
+            handleChange('avatarUrl', response.avatarUrl);
+            toast({
+                title: 'Photo uploaded',
+                description: 'Student photo has been added.',
+                variant: 'success',
+            });
+        } catch (error) {
+            toast({
+                title: 'Upload failed',
+                description: error instanceof Error ? error.message : 'Failed to upload photo.',
+                variant: 'error',
+            });
+        } finally {
+            setIsUploadingAvatar(false);
+            event.target.value = '';
+        }
+    };
 
     const handleChange = (
         field: keyof StudentFormData,
@@ -222,6 +256,48 @@ export function StudentForm({
                                 {errors.email}
                             </p>
                         )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="studentAvatarUpload">Profile Photo (Optional)</Label>
+                        <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-full overflow-hidden border border-border/60 bg-muted/30 flex items-center justify-center">
+                                {formData.avatarUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={formData.avatarUrl} alt="Student avatar" className="h-full w-full object-cover" />
+                                ) : (
+                                    <span className="text-xs font-semibold text-muted-foreground">
+                                        {formData.name?.charAt(0)?.toUpperCase() || 'S'}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label htmlFor="studentAvatarUpload">
+                                    <span className="inline-flex items-center justify-center whitespace-nowrap rounded-md border border-border/60 bg-transparent hover:bg-muted/50 hover:border-border text-foreground h-8 px-3 text-sm gap-1.5 cursor-pointer">
+                                        {isUploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                                        {isUploadingAvatar ? 'Uploading...' : 'Upload'}
+                                    </span>
+                                </label>
+                                <input
+                                    id="studentAvatarUpload"
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                                    onChange={handleAvatarUpload}
+                                    className="hidden"
+                                    disabled={isUploadingAvatar}
+                                />
+                                {formData.avatarUrl && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleChange('avatarUrl', '')}
+                                    >
+                                        Remove
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </DrawerSection>

@@ -44,7 +44,6 @@ interface StudentDrawerProps {
     onAssignMentor: (mentorId: string) => void;
     onTransferCohort: (cohortId: string) => void;
     onAddNote: (content: string) => void;
-    onUpdatePayment: (status: Student['paymentStatus']) => void;
     onSendMessage: () => void;
     mentorOptions?: SelectOption[];
     cohortOptions?: SelectOption[];
@@ -93,25 +92,6 @@ const statusOptions: Student['status'][] = [
     'Completed',
 ];
 
-const paymentOptions = [
-    {
-        value: 'Paid',
-        label: 'Paid',
-    },
-    {
-        value: 'Pending',
-        label: 'Pending',
-    },
-    {
-        value: 'Overdue',
-        label: 'Overdue',
-    },
-    {
-        value: 'Refunded',
-        label: 'Refunded',
-    },
-];
-
 export function StudentDrawer({
     student,
     onStatusChange,
@@ -121,7 +101,6 @@ export function StudentDrawer({
     onAssignMentor,
     onTransferCohort,
     onAddNote,
-    onUpdatePayment,
     onSendMessage,
     mentorOptions = [],
     cohortOptions = [],
@@ -143,10 +122,6 @@ export function StudentDrawer({
     const [selectedCohortId, setSelectedCohortId] = useState('');
     const [showAddNote, setShowAddNote] = useState(false);
     const [newNoteContent, setNewNoteContent] = useState('');
-    const [showPaymentUpdate, setShowPaymentUpdate] = useState(false);
-    const [selectedPaymentStatus, setSelectedPaymentStatus] = useState(
-        student.paymentStatus
-    );
 
     useEffect(() => {
         setSelectedStatus(student.status);
@@ -160,8 +135,6 @@ export function StudentDrawer({
         setSelectedCohortId('');
         setShowAddNote(false);
         setNewNoteContent('');
-        setShowPaymentUpdate(false);
-        setSelectedPaymentStatus(student.paymentStatus);
     }, [student.id]);
 
     const currentConfig = statusConfig[student.status];
@@ -221,13 +194,6 @@ export function StudentDrawer({
         }
     };
 
-    const handlePaymentUpdate = () => {
-        if (selectedPaymentStatus !== student.paymentStatus) {
-            onUpdatePayment(selectedPaymentStatus);
-            setShowPaymentUpdate(false);
-        }
-    };
-
     const hasUnsavedChanges = selectedStatus !== student.status;
 
     const getPaymentVariant = (status: Student['paymentStatus']) => {
@@ -249,9 +215,18 @@ export function StudentDrawer({
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-start gap-4">
-                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xl font-semibold text-primary flex-shrink-0">
-                    {student.name.charAt(0)}
-                </div>
+                {student.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                        src={student.avatarUrl}
+                        alt={student.name}
+                        className="h-14 w-14 rounded-xl object-cover border border-border/50 flex-shrink-0"
+                    />
+                ) : (
+                    <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xl font-semibold text-primary flex-shrink-0">
+                        {student.name.charAt(0)}
+                    </div>
+                )}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <h2 className="text-lg font-semibold text-foreground truncate">
@@ -329,49 +304,9 @@ export function StudentDrawer({
                                 >
                                     {student.paymentStatus}
                                 </Badge>
-                                <button
-                                    onClick={() => setShowPaymentUpdate(!showPaymentUpdate)}
-                                    className="text-xs text-primary hover:underline"
-                                >
-                                    Update
-                                </button>
                             </div>
                         </div>
                     </div>
-
-                    {/* Payment Update */}
-                    {showPaymentUpdate && (
-                        <div className="p-3 rounded-lg bg-muted/30 border border-border/50 space-y-3">
-                            <Label>Update Payment Status</Label>
-                            <Select
-                                options={paymentOptions}
-                                value={selectedPaymentStatus}
-                                onChange={(e) =>
-                                    setSelectedPaymentStatus(
-                                        e.target.value as Student['paymentStatus']
-                                    )
-                                }
-                            />
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowPaymentUpdate(false)}
-                                    className="flex-1"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    onClick={handlePaymentUpdate}
-                                    disabled={selectedPaymentStatus === student.paymentStatus}
-                                    className="flex-1"
-                                >
-                                    Update
-                                </Button>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </DrawerSection>
 

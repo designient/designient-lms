@@ -37,6 +37,7 @@ interface ApiStudent {
     mentorName?: string;
     enrollmentDate?: string;
     whatsappOptIn?: boolean;
+    paymentStatus?: Student['paymentStatus'];
 }
 
 function transformStudent(raw: ApiStudent): Student {
@@ -66,6 +67,7 @@ function transformStudent(raw: ApiStudent): Student {
         id: raw.id,
         name: raw.name || '',
         email: raw.email || '',
+        avatarUrl: raw.avatarUrl || null,
         phone: raw.phone || undefined,
         whatsappOptIn: raw.whatsappOptIn,
         cohortId: raw.cohortId || '',
@@ -78,7 +80,7 @@ function transformStudent(raw: ApiStudent): Student {
         progress: 0,
         sessionsAttended: 0,
         totalSessions: 0,
-        paymentStatus: 'Pending',
+        paymentStatus: raw.paymentStatus || 'Pending',
         notes: [],
     };
 }
@@ -399,25 +401,6 @@ export default function StudentsPage() {
         }
     };
 
-    const handleUpdatePayment = (status: Student['paymentStatus']) => {
-        if (!selectedStudent) return;
-        // Note: Payment fields do not exist in the database schema.
-        // This is a UI-only update for display purposes.
-        const updatedStudent: Student = {
-            ...selectedStudent,
-            paymentStatus: status,
-        };
-        setSelectedStudent(updatedStudent);
-        setStudents((prev) =>
-            prev.map((s) => (s.id === selectedStudent.id ? updatedStudent : s))
-        );
-        toast({
-            title: 'Payment Updated',
-            description: `Payment status changed to ${status} (note: not persisted to database)`,
-            variant: 'warning',
-        });
-    };
-
     const handleSendMessage = () => {
         if (!selectedStudent) return;
         handleNavigate('communications');
@@ -435,6 +418,7 @@ export default function StudentsPage() {
                 const payload = {
                     email: data.email,
                     name: data.name,
+                    avatarUrl: data.avatarUrl || undefined,
                     cohortId: data.cohortId,
                     phone: data.phone || undefined,
                     whatsappOptIn: data.whatsappOptIn,
@@ -450,6 +434,9 @@ export default function StudentsPage() {
                 });
             } else if (drawerMode === 'edit' && selectedStudent) {
                 const payload = {
+                    name: data.name,
+                    email: data.email,
+                    avatarUrl: data.avatarUrl || null,
                     cohortId: data.cohortId,
                     phone: data.phone || undefined,
                     whatsappOptIn: data.whatsappOptIn,
@@ -457,7 +444,9 @@ export default function StudentsPage() {
                 await apiClient.put(`/api/v1/students/${selectedStudent.id}`, payload);
                 const updatedStudent: Student = {
                     ...selectedStudent,
+                    name: data.name,
                     email: data.email,
+                    avatarUrl: data.avatarUrl || null,
                     phone: data.phone || undefined,
                     whatsappOptIn: data.whatsappOptIn,
                     cohortId: data.cohortId,
@@ -488,6 +477,7 @@ export default function StudentsPage() {
     const studentToFormData = (student: Student): Partial<StudentFormData> => ({
         name: student.name,
         email: student.email,
+        avatarUrl: student.avatarUrl || '',
         phone: student.phone || '',
         alternatePhone: student.alternatePhone || '',
         whatsappOptIn: student.whatsappOptIn ?? true,
@@ -654,7 +644,6 @@ export default function StudentsPage() {
                             onAssignMentor={handleAssignMentor}
                             onTransferCohort={handleTransferCohort}
                             onAddNote={handleAddNote}
-                            onUpdatePayment={handleUpdatePayment}
                             onSendMessage={handleSendMessage}
                             mentorOptions={mentorOptionsList}
                             cohortOptions={cohortOptions}

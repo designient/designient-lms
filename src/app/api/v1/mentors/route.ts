@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
 import { mentorProfileSchema, formatZodErrors } from '@/lib/validations';
 import { logAudit } from '@/lib/audit';
+import { sendInvitationEmail } from '@/lib/email';
 
 // GET /api/v1/mentors - List all mentors
 export const GET = withAuth(
@@ -35,8 +36,18 @@ export const GET = withAuth(
                 prisma.mentorProfile.findMany({
                     where,
                     include: {
-                        user: { select: { id: true, name: true, email: true, avatarUrl: true } },
-                        _count: { select: { cohorts: true } }
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true,
+                                avatarUrl: true,
+                                createdAt: true,
+                                updatedAt: true,
+                                _count: { select: { studentsMentored: true } },
+                            }
+                        },
+                        _count: { select: { cohorts: true, ratings: true } }
                     },
                     orderBy: { user: { name: 'asc' } },
                     skip: (page - 1) * limit,
@@ -54,9 +65,14 @@ export const GET = withAuth(
                 avatarUrl: m.user.avatarUrl,
                 specialization: m.specialization,
                 status: m.status,
+                availabilityStatus: m.availabilityStatus,
                 cohortCount: m._count.cohorts,
                 maxCohorts: m.maxCohorts,
                 rating: m.rating,
+                totalReviews: m._count.ratings,
+                totalStudentsMentored: m.user._count.studentsMentored,
+                joinDate: m.user.createdAt,
+                lastActive: m.user.updatedAt,
             }));
 
             return apiSuccess({
@@ -76,7 +92,7 @@ export const POST = withAuth(
     async (req: NextRequest, _ctx, user) => {
         try {
             const body = await req.json();
-            const { email, name, ...profileData } = body;
+            const { email, name, avatarUrl, ...profileData } = body;
 
             let targetUserId = body.userId;
 
@@ -84,16 +100,14 @@ export const POST = withAuth(
                 // Check if user exists
                 let targetUser = await prisma.user.findUnique({ where: { email } });
                 if (!targetUser) {
-                    const crypto = require('crypto');
-                    const { sendInvitationEmail } = require('@/lib/email');
-
-                    const token = crypto.randomBytes(32).toString('hex');
+                    const token = randomBytes(32).toString('hex');
                     const tokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
                     targetUser = await prisma.user.create({
                         data: {
                             email,
                             name: name || email.split('@')[0],
+                            avatarUrl: typeof avatarUrl === 'string' ? avatarUrl : null,
                             role: 'INSTRUCTOR',
                             passwordHash: 'PENDING_SETUP',
                             isActive: true,
@@ -104,7 +118,7 @@ export const POST = withAuth(
                     });
 
                     // Send invitation email
-                    sendInvitationEmail(email, token, 'mentor', targetUser.name).catch((err: any) =>
+                    sendInvitationEmail(email, token, 'mentor', targetUser.name).catch((err: unknown) =>
                         console.error('Failed to send mentor invitation:', err)
                     );
                 }
@@ -137,7 +151,10 @@ export const POST = withAuth(
             // Ensure user role is updated if needed
             await prisma.user.update({
                 where: { id: targetUserId },
-                data: { role: 'INSTRUCTOR' }
+                data: {
+                    role: 'INSTRUCTOR',
+                    ...(typeof avatarUrl === 'string' ? { avatarUrl } : {}),
+                }
             });
 
             await logAudit(user.id, 'MENTOR_CREATED', 'MentorProfile', mentor.id);

@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import {
@@ -15,6 +14,9 @@ import {
     Lock,
     Eye,
     EyeOff,
+    Camera,
+    Loader2,
+    Star,
 } from 'lucide-react';
 
 interface StudentProfileData {
@@ -39,8 +41,24 @@ interface StudentProfileData {
     } | null;
 }
 
+interface MentorRatingData {
+    mentor: {
+        id: string;
+        name: string;
+        profileId: string;
+        rating: number;
+        totalReviews: number;
+        availabilityStatus: 'AVAILABLE' | 'LIMITED' | 'UNAVAILABLE';
+    } | null;
+    studentRating: {
+        rating: number;
+        feedback: string | null;
+        updatedAt: string;
+    } | null;
+}
+
 export default function StudentProfilePage() {
-    const { data: session } = useSession();
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [profile, setProfile] = useState<StudentProfileData | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -50,6 +68,13 @@ export default function StudentProfilePage() {
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [whatsappOptIn, setWhatsappOptIn] = useState(true);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarRemoved, setAvatarRemoved] = useState(false);
+    const [mentorRatingData, setMentorRatingData] = useState<MentorRatingData | null>(null);
+    const [mentorRating, setMentorRating] = useState(0);
+    const [mentorFeedback, setMentorFeedback] = useState('');
+    const [savingMentorRating, setSavingMentorRating] = useState(false);
 
     // Password change
     const [currentPassword, setCurrentPassword] = useState('');
@@ -60,26 +85,75 @@ export default function StudentProfilePage() {
     const [showNewPassword, setShowNewPassword] = useState(false);
 
     useEffect(() => {
-        api.get<StudentProfileData>('/me/profile').then((res) => {
-            if (res.success && res.data) {
-                setProfile(res.data);
-                setName(res.data.name || '');
-                setPhone(res.data.studentProfile?.phone || '');
-                setWhatsappOptIn(res.data.studentProfile?.whatsappOptIn ?? true);
+        async function loadProfile() {
+            const [profileRes, mentorRatingRes] = await Promise.all([
+                api.get<StudentProfileData>('/me/profile'),
+                api.get<MentorRatingData>('/me/mentor-rating'),
+            ]);
+
+            if (profileRes.success && profileRes.data) {
+                setProfile(profileRes.data);
+                setName(profileRes.data.name || '');
+                setPhone(profileRes.data.studentProfile?.phone || '');
+                setWhatsappOptIn(profileRes.data.studentProfile?.whatsappOptIn ?? true);
+                setAvatarPreview(profileRes.data.avatarUrl || null);
             }
+
+            if (mentorRatingRes.success && mentorRatingRes.data) {
+                setMentorRatingData(mentorRatingRes.data);
+                setMentorRating(mentorRatingRes.data.studentRating?.rating ?? 0);
+                setMentorFeedback(mentorRatingRes.data.studentRating?.feedback || '');
+            }
+
             setLoading(false);
-        });
+        }
+
+        loadProfile();
     }, []);
+
+    const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setAvatarFile(file);
+        setAvatarRemoved(false);
+        const reader = new FileReader();
+        reader.onloadend = () => setAvatarPreview(reader.result as string);
+        reader.readAsDataURL(file);
+    };
 
     const handleSave = async () => {
         setSaving(true);
+        let nextAvatarUrl = profile?.avatarUrl || null;
+        if (avatarRemoved) {
+            nextAvatarUrl = null;
+        } else if (avatarFile) {
+            const formData = new FormData();
+            formData.append('file', avatarFile);
+            const uploadRes = await api.upload<{ avatarUrl: string }>('/uploads/avatar', formData);
+            if (!uploadRes.success || !uploadRes.data) {
+                toast({
+                    title: 'Error',
+                    description: uploadRes.error?.message || 'Failed to upload image.',
+                    variant: 'error',
+                });
+                setSaving(false);
+                return;
+            }
+            nextAvatarUrl = uploadRes.data.avatarUrl;
+        }
+
         const res = await api.patch<StudentProfileData>('/me/profile', {
             name: name.trim(),
             phone: phone.trim(),
             whatsappOptIn,
+            avatarUrl: nextAvatarUrl,
         });
         if (res.success && res.data) {
             setProfile(res.data);
+            setAvatarPreview(res.data.avatarUrl || null);
+            setAvatarFile(null);
+            setAvatarRemoved(false);
             toast({
                 title: 'Profile updated',
                 description: 'Your changes have been saved.',
@@ -125,6 +199,44 @@ export default function StudentProfilePage() {
         setChangingPassword(false);
     };
 
+    const handleSaveMentorRating = async () => {
+        if (!mentorRatingData?.mentor) {
+            return;
+        }
+        if (mentorRating < 1 || mentorRating > 5) {
+            toast({
+                title: 'Rating required',
+                description: 'Please select a rating between 1 and 5 stars.',
+                variant: 'error',
+            });
+            return;
+        }
+
+        setSavingMentorRating(true);
+        const res = await api.patch<MentorRatingData>('/me/mentor-rating', {
+            rating: mentorRating,
+            feedback: mentorFeedback,
+        });
+
+        if (res.success && res.data) {
+            setMentorRatingData(res.data);
+            setMentorRating(res.data.studentRating?.rating ?? mentorRating);
+            setMentorFeedback(res.data.studentRating?.feedback || '');
+            toast({
+                title: 'Rating saved',
+                description: 'Your mentor feedback has been submitted.',
+                variant: 'success',
+            });
+        } else {
+            toast({
+                title: 'Error',
+                description: res.error?.message || 'Unable to save mentor rating.',
+                variant: 'error',
+            });
+        }
+        setSavingMentorRating(false);
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -162,8 +274,33 @@ export default function StudentProfilePage() {
             {/* Avatar & Identity */}
             <div className="rounded-xl border border-border/50 bg-card p-6">
                 <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xl shadow-md flex-shrink-0">
-                        {initials}
+                    <div className="relative group">
+                        {avatarPreview ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                src={avatarPreview}
+                                alt={name || 'Student avatar'}
+                                className="h-16 w-16 rounded-full object-cover border border-border/50 shadow-md flex-shrink-0"
+                            />
+                        ) : (
+                            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xl shadow-md flex-shrink-0">
+                                {initials}
+                            </div>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                            <Camera className="h-4 w-4 text-white" />
+                        </button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleAvatarChange}
+                            className="hidden"
+                        />
                     </div>
                     <div>
                         <h2 className="text-lg font-semibold text-foreground">
@@ -179,6 +316,19 @@ export default function StudentProfilePage() {
                             >
                                 {profile.studentProfile.status}
                             </span>
+                        )}
+                        {avatarPreview && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setAvatarPreview(null);
+                                    setAvatarFile(null);
+                                    setAvatarRemoved(true);
+                                }}
+                                className="block mt-2 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                                Remove photo
+                            </button>
                         )}
                     </div>
                 </div>
@@ -227,6 +377,82 @@ export default function StudentProfilePage() {
                     </div>
                 </div>
             )}
+
+            {/* Mentor Rating */}
+            <div className="rounded-xl border border-border/50 bg-card p-6">
+                <h3 className="text-sm font-semibold text-foreground mb-4">Rate Your Mentor</h3>
+                {mentorRatingData?.mentor ? (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-foreground">
+                                    {mentorRatingData.mentor.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Current average: {mentorRatingData.mentor.rating.toFixed(1)} / 5
+                                    {' '}({mentorRatingData.mentor.totalReviews} reviews)
+                                </p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p className="text-xs text-muted-foreground mb-2">Your rating</p>
+                            <div className="flex items-center gap-1">
+                                {[1, 2, 3, 4, 5].map((value) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() => setMentorRating(value)}
+                                        className="p-1 rounded hover:bg-muted/50 transition-colors"
+                                        aria-label={`Rate ${value} star${value > 1 ? 's' : ''}`}
+                                    >
+                                        <Star
+                                            className={`h-5 w-5 ${value <= mentorRating
+                                                ? 'text-amber-500 fill-amber-500'
+                                                : 'text-muted-foreground'
+                                                }`}
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-medium text-foreground block mb-1.5">
+                                Feedback (optional)
+                            </label>
+                            <textarea
+                                value={mentorFeedback}
+                                onChange={(e) => setMentorFeedback(e.target.value)}
+                                rows={3}
+                                maxLength={1000}
+                                className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                placeholder="Share your experience with this mentor..."
+                            />
+                        </div>
+
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={handleSaveMentorRating}
+                                disabled={savingMentorRating}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                            >
+                                {savingMentorRating ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Star className="h-4 w-4" />
+                                )}
+                                {savingMentorRating ? 'Saving...' : 'Save Rating'}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <p className="text-sm text-muted-foreground">
+                        No mentor is assigned yet, so rating is currently unavailable.
+                    </p>
+                )}
+            </div>
 
             {/* Editable Fields */}
             <div className="rounded-xl border border-border/50 bg-card p-6 space-y-5">
@@ -410,7 +636,7 @@ export default function StudentProfilePage() {
                     onClick={handleSave}
                     disabled={saving}
                 >
-                    <Save className="h-4 w-4" />
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     {saving ? 'Saving...' : 'Save Changes'}
                 </button>
             </div>

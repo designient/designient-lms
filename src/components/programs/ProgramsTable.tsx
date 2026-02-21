@@ -1,18 +1,36 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import { Badge } from '../ui/Badge';
-import { MoreHorizontal, Clock, Users } from 'lucide-react';
+import { MoreHorizontal, Clock, Users, Pencil, Trash2, Archive, RotateCcw } from 'lucide-react';
 import { Program } from '../../types';
 
 interface ProgramsTableProps {
     programs: Program[];
     onProgramClick: (program: Program) => void;
+    onEditProgram: (program: Program) => void;
+    onArchiveProgram: (program: Program) => void;
+    onMoveProgramToDraft: (program: Program) => void;
+    onDeleteProgram: (program: Program) => void;
 }
 
 export function ProgramsTable({
     programs,
-    onProgramClick
+    onProgramClick,
+    onEditProgram,
+    onArchiveProgram,
+    onMoveProgramToDraft,
+    onDeleteProgram,
 }: ProgramsTableProps) {
+    const [openMenuProgramId, setOpenMenuProgramId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!openMenuProgramId) return;
+
+        const handleDocumentClick = () => setOpenMenuProgramId(null);
+        document.addEventListener('click', handleDocumentClick);
+        return () => document.removeEventListener('click', handleDocumentClick);
+    }, [openMenuProgramId]);
+
     const getStatusVariant = (status: Program['status']) => {
         switch (status) {
             case 'Active':
@@ -39,13 +57,13 @@ export function ProgramsTable({
                                 <th className="h-10 px-5 text-left align-middle text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                                     Status
                                 </th>
-                                <th className="h-10 px-5 text-left align-middle text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                <th className="h-10 px-5 text-left align-middle text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[140px]">
                                     Duration
                                 </th>
-                                <th className="h-10 px-5 text-left align-middle text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                <th className="h-10 px-5 text-left align-middle text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[140px]">
                                     Cohorts
                                 </th>
-                                <th className="h-10 px-5 text-left align-middle text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                <th className="h-10 px-5 text-left align-middle text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[160px]">
                                     Created
                                 </th>
                                 <th className="h-10 px-5 text-right align-middle w-8"></th>
@@ -87,30 +105,89 @@ export function ProgramsTable({
                                                 {program.status}
                                             </Badge>
                                         </td>
-                                        <td className="px-5 py-4 align-middle">
-                                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                                        <td className="px-5 py-4 align-middle whitespace-nowrap">
+                                            <div className="inline-flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
                                                 <Clock className="h-3.5 w-3.5" />
                                                 <span className="text-[12px]">{program.duration}</span>
                                             </div>
                                         </td>
-                                        <td className="px-5 py-4 align-middle">
-                                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                                        <td className="px-5 py-4 align-middle whitespace-nowrap">
+                                            <div className="inline-flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
                                                 <Users className="h-3.5 w-3.5" />
                                                 <span className="text-[12px]">
                                                     {program.cohortCount} Cohorts
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="px-5 py-4 align-middle text-[12px] text-muted-foreground">
+                                        <td className="px-5 py-4 align-middle text-[12px] text-muted-foreground whitespace-nowrap">
                                             {program.createdAt}
                                         </td>
-                                        <td className="px-5 py-4 align-middle text-right">
+                                        <td className="px-5 py-4 align-middle text-right relative">
                                             <button
-                                                className="p-1 hover:bg-muted rounded transition-colors opacity-0 group-hover:opacity-100"
-                                                onClick={(e) => e.stopPropagation()}
+                                                className={`p-1 hover:bg-muted rounded transition-colors ${openMenuProgramId === program.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                                    }`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setOpenMenuProgramId((prev) =>
+                                                        prev === program.id ? null : program.id
+                                                    );
+                                                }}
                                             >
                                                 <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                                             </button>
+                                            {openMenuProgramId === program.id && (
+                                                <div
+                                                    className="absolute right-5 top-11 z-30 w-36 rounded-md border border-border/60 bg-card shadow-lg p-1"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        className="w-full flex items-center gap-2 px-2.5 py-2 text-xs text-left rounded hover:bg-muted/50"
+                                                        onClick={() => {
+                                                            setOpenMenuProgramId(null);
+                                                            onEditProgram(program);
+                                                        }}
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="w-full flex items-center gap-2 px-2.5 py-2 text-xs text-left rounded hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        onClick={() => {
+                                                            setOpenMenuProgramId(null);
+                                                            onArchiveProgram(program);
+                                                        }}
+                                                        disabled={program.status === 'Archived'}
+                                                    >
+                                                        <Archive className="h-3.5 w-3.5" />
+                                                        Archive
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="w-full flex items-center gap-2 px-2.5 py-2 text-xs text-left rounded hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        onClick={() => {
+                                                            setOpenMenuProgramId(null);
+                                                            onMoveProgramToDraft(program);
+                                                        }}
+                                                        disabled={program.status === 'Draft'}
+                                                    >
+                                                        <RotateCcw className="h-3.5 w-3.5" />
+                                                        Move to Draft
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="w-full flex items-center gap-2 px-2.5 py-2 text-xs text-left rounded text-destructive hover:bg-destructive/5"
+                                                        onClick={() => {
+                                                            setOpenMenuProgramId(null);
+                                                            onDeleteProgram(program);
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 ))

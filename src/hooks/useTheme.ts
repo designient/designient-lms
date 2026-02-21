@@ -4,15 +4,15 @@ import { useState, useEffect, useCallback } from 'react';
 
 export type Theme = 'light' | 'dark' | 'system';
 
-const THEME_KEY = 'designient-theme';
+export const THEME_KEY = 'designient-theme';
+const AUTO_LIGHT_START_HOUR = 7;
+const AUTO_DARK_START_HOUR = 19;
 
-function getSystemTheme(): 'light' | 'dark' {
-    if (typeof window !== 'undefined' && window.matchMedia) {
-        return window.matchMedia('(prefers-color-scheme: dark)').matches
-            ? 'dark'
-            : 'light';
-    }
-    return 'light';
+function getTimeBasedTheme(): 'light' | 'dark' {
+    const hour = new Date().getHours();
+    return hour >= AUTO_LIGHT_START_HOUR && hour < AUTO_DARK_START_HOUR
+        ? 'light'
+        : 'dark';
 }
 
 function getStoredTheme(): Theme {
@@ -25,47 +25,60 @@ function getStoredTheme(): Theme {
     return 'system';
 }
 
-function applyTheme(theme: Theme) {
-    const root = document.documentElement;
-    const effectiveTheme = theme === 'system' ? getSystemTheme() : theme;
+function resolveTheme(theme: Theme): 'light' | 'dark' {
+    return theme === 'system' ? getTimeBasedTheme() : theme;
+}
 
-    if (effectiveTheme === 'dark') {
-        root.classList.add('dark');
-    } else {
-        root.classList.remove('dark');
-    }
+function applyTheme(theme: Theme) {
+    if (typeof document === 'undefined') return;
+
+    const root = document.documentElement;
+    const effectiveTheme = resolveTheme(theme);
+
+    root.classList.toggle('dark', effectiveTheme === 'dark');
+
+    root.dataset.theme = theme;
 }
 
 export function useTheme() {
-    const [theme, setThemeState] = useState<Theme>('system');
-    const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+    const [theme, setThemeState] = useState<Theme>(() => getStoredTheme());
+    const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => resolveTheme(getStoredTheme()));
 
-    // Initialize on mount
     useEffect(() => {
-        const stored = getStoredTheme();
-        setThemeState(stored);
-        setResolvedTheme(stored === 'system' ? getSystemTheme() : stored as 'light' | 'dark');
-        applyTheme(stored);
-    }, []);
+        applyTheme(theme);
+        setResolvedTheme(resolveTheme(theme));
+    }, [theme]);
 
     const setTheme = useCallback((newTheme: Theme) => {
         setThemeState(newTheme);
-        localStorage.setItem(THEME_KEY, newTheme);
-        applyTheme(newTheme);
-        setResolvedTheme(newTheme === 'system' ? getSystemTheme() : newTheme);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(THEME_KEY, newTheme);
+        }
     }, []);
 
     useEffect(() => {
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const handleChange = () => {
-            if (theme === 'system') {
-                applyTheme('system');
-                setResolvedTheme(getSystemTheme());
-            }
+        if (theme !== 'system') return;
+
+        const syncAutoTheme = () => {
+            applyTheme('system');
+            setResolvedTheme(getTimeBasedTheme());
         };
 
-        mediaQuery.addEventListener('change', handleChange);
-        return () => mediaQuery.removeEventListener('change', handleChange);
+        syncAutoTheme();
+
+        const autoSyncInterval = window.setInterval(syncAutoTheme, 60_000);
+        window.addEventListener('focus', syncAutoTheme);
+
+        const handleVisibilityChange = () => {
+            if (!document.hidden) syncAutoTheme();
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.clearInterval(autoSyncInterval);
+            window.removeEventListener('focus', syncAutoTheme);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [theme]);
 
     return { theme, setTheme, resolvedTheme };

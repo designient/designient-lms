@@ -15,8 +15,8 @@ export const POST = withAuth(
             });
             if (!mod) return apiError('Module not found', 404, 'NOT_FOUND');
 
-            if (user.role === 'INSTRUCTOR' && mod.course.createdBy !== user.id) {
-                return apiError('Forbidden', 403, 'FORBIDDEN');
+            if (user.role === 'INSTRUCTOR') {
+                return apiError('Mentors cannot edit live syllabus directly. Use draft flow.', 403, 'FORBIDDEN');
             }
 
             const body = await req.json();

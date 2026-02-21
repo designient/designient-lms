@@ -214,12 +214,14 @@ export default function StudentLearnPage({ params }: { params: Promise<{ id: str
 
                         {activeLesson.contentType === 'TEXT' &&
                             activeLesson.contentBody && (
-                                <div
-                                    className="prose prose-sm dark:prose-invert max-w-none"
-                                    dangerouslySetInnerHTML={{
-                                        __html: activeLesson.contentBody,
-                                    }}
-                                />
+                                <div className="w-full overflow-x-auto rounded-lg border border-border/40 bg-card p-4">
+                                    <div
+                                        className="prose prose-sm dark:prose-invert max-w-none [&_table]:w-full [&_table]:min-w-[560px]"
+                                        dangerouslySetInnerHTML={{
+                                            __html: activeLesson.contentBody,
+                                        }}
+                                    />
+                                </div>
                             )}
 
                         {activeLesson.contentType === 'FILE' &&

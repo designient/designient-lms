@@ -95,9 +95,18 @@ export function StudentsTable({
                                     >
                                         <td className="px-5 py-4 align-middle">
                                             <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300 flex-shrink-0">
-                                                    {student.name.charAt(0)}
-                                                </div>
+                                                {student.avatarUrl ? (
+                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                    <img
+                                                        src={student.avatarUrl}
+                                                        alt={student.name}
+                                                        className="h-8 w-8 rounded-md object-cover border border-border/40 flex-shrink-0"
+                                                    />
+                                                ) : (
+                                                    <div className="h-8 w-8 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300 flex-shrink-0">
+                                                        {student.name.charAt(0)}
+                                                    </div>
+                                                )}
                                                 <div className="flex flex-col min-w-0">
                                                     <span className="text-[13px] font-medium text-foreground truncate max-w-[150px]">
                                                         {student.name}

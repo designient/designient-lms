@@ -1,6 +1,6 @@
 # Vercel Deployment Guide
 
-This guide details how to deploy the Designient LMS to Vercel on the Hobby plan.
+This guide details how to deploy the Designient Workspace to Vercel on the Hobby plan.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ This guide details how to deploy the Designient LMS to Vercel on the Hobby plan.
 
 1.  Log in to Vercel.
 2.  Click **"Add New..."** -> **"Project"**.
-3.  Connect your GitHub account and select the `designient-lms` repository.
+3.  Connect your GitHub account and select the `designient-workspace` repository.
 
 ### 2. Configure Project Settings
 
@@ -45,7 +45,7 @@ To enable **File Uploads** (Recordings/Materials) and **Emails** (Invites/Reset 
 *   Variables:
     *   `S3_ENDPOINT` (e.g. `https://s3.us-east-1.amazonaws.com`)
     *   `S3_REGION` (e.g. `us-east-1`)
-    *   `S3_BUCKET` (e.g. `lms-uploads`)
+    *   `S3_BUCKET` (e.g. `workspace-uploads`)
     *   `S3_ACCESS_KEY`
     *   `S3_SECRET_KEY`
 
@@ -74,7 +74,7 @@ Click **"Deploy"**. Vercel will:
     *   **Option B (Vercel Build Command)**: You can change the build command to `npx prisma migrate deploy && prisma generate && next build` - *Warning*: This runs migration on every build, which can be risky if multiple builds run.
 
 2.  **Verify Access**:
-    *   Visit your Vercel URL (e.g., `https://designient-lms.vercel.app`).
+    *   Visit your Vercel URL (e.g., `https://designient-workspace.vercel.app`).
     *   Log in with your Admin credentials.
 
 ## Troubleshooting

@@ -1,6 +1,6 @@
-# LMS Architecture & Workflow Analysis
+# CohortOS Architecture & Workflow Analysis
 
-This document outlines the complete architecture of the Designient LMS, detailing how the three primary roles (Admin, Mentor, Student) interact within the system.
+This document outlines the complete architecture of the Designient Workspace, detailing how the three primary roles (Admin, Mentor, Student) interact within the system.
 
 ## 1. High-Level Role Relationships
 

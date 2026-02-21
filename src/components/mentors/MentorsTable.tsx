@@ -13,6 +13,7 @@ export interface Mentor {
     id: string;
     name: string;
     email: string;
+    avatarUrl?: string | null;
     status: 'Active' | 'Inactive';
     assignedCohorts: AssignedCohort[];
     lastActive: string;
@@ -95,9 +96,18 @@ export function MentorsTable({ mentors, onMentorClick }: MentorsTableProps) {
                                     >
                                         <td className="px-5 py-4 align-middle">
                                             <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300">
-                                                    {mentor.name.charAt(0)}
-                                                </div>
+                                                {mentor.avatarUrl ? (
+                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                    <img
+                                                        src={mentor.avatarUrl}
+                                                        alt={mentor.name}
+                                                        className="h-8 w-8 rounded-md object-cover border border-border/40"
+                                                    />
+                                                ) : (
+                                                    <div className="h-8 w-8 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                                                        {mentor.name.charAt(0)}
+                                                    </div>
+                                                )}
                                                 <div className="flex flex-col">
                                                     <span className="text-[13px] font-medium text-foreground">
                                                         {mentor.name}

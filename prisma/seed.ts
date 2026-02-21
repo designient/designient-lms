@@ -27,7 +27,7 @@ async function main() {
     const admin = await prisma.user.create({
         data: {
             name: 'Admin User',
-            email: 'admin@lms.com',
+            email: 'admin@workspace.local',
             passwordHash,
             role: 'ADMIN',
             isActive: true,
@@ -38,7 +38,7 @@ async function main() {
     const instructor = await prisma.user.create({
         data: {
             name: 'Jane Instructor',
-            email: 'instructor@lms.com',
+            email: 'instructor@workspace.local',
             passwordHash,
             role: 'INSTRUCTOR',
             isActive: true,
@@ -49,7 +49,7 @@ async function main() {
     const student = await prisma.user.create({
         data: {
             name: 'John Student',
-            email: 'student@lms.com',
+            email: 'student@workspace.local',
             passwordHash,
             role: 'STUDENT',
             isActive: true,
@@ -60,7 +60,7 @@ async function main() {
     const student2 = await prisma.user.create({
         data: {
             name: 'Alice Learner',
-            email: 'alice@lms.com',
+            email: 'alice@workspace.local',
             passwordHash,
             role: 'STUDENT',
             isActive: true,
@@ -299,10 +299,10 @@ async function main() {
     console.log('✅ Seeding complete!');
     console.log('');
     console.log('📧 Test accounts (password: Password1):');
-    console.log(`   Admin:      admin@lms.com`);
-    console.log(`   Instructor: instructor@lms.com`);
-    console.log(`   Student:    student@lms.com`);
-    console.log(`   Student 2:  alice@lms.com`);
+    console.log(`   Admin:      admin@workspace.local`);
+    console.log(`   Instructor: instructor@workspace.local`);
+    console.log(`   Student:    student@workspace.local`);
+    console.log(`   Student 2:  alice@workspace.local`);
 
     // Suppress unused variable warnings
     void enrollment;

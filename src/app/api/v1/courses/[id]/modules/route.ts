@@ -12,8 +12,8 @@ export const POST = withAuth(
             const course = await prisma.course.findUnique({ where: { id: courseId } });
             if (!course) return apiError('Course not found', 404, 'NOT_FOUND');
 
-            if (user.role === 'INSTRUCTOR' && course.createdBy !== user.id) {
-                return apiError('You can only modify your own courses', 403, 'FORBIDDEN');
+            if (user.role === 'INSTRUCTOR') {
+                return apiError('Mentors cannot edit live syllabus directly. Use draft flow.', 403, 'FORBIDDEN');
             }
 
             const body = await req.json();

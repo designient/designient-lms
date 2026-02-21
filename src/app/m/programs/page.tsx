@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Loader2, BookOpen, FileText, Video, ClipboardCheck, Layers, ListOrdered, ListChecks } from 'lucide-react';
+import { Loader2, BookOpen, FileText, Video, ClipboardCheck, Layers, ListOrdered, ListChecks, Hammer } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 
@@ -108,7 +108,17 @@ export default function MentorProgramsPage() {
                             {/* Program Actions */}
                             <div className="p-5">
                                 {program.courseId ? (
-                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+                                        <Link
+                                            href={`/m/syllabus/${program.courseId}`}
+                                            className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border/60 hover:bg-muted/30 hover:border-primary/30 transition-colors group"
+                                        >
+                                            <div className="h-10 w-10 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                                                <Hammer className="h-5 w-5 text-indigo-600" />
+                                            </div>
+                                            <span className="text-sm font-medium text-foreground group-hover:text-primary">Manage Syllabus</span>
+                                            <span className="text-xs text-muted-foreground">Draft and submit</span>
+                                        </Link>
                                         <Link
                                             href={`/m/materials?courseId=${program.courseId}`}
                                             className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border/60 hover:bg-muted/30 hover:border-primary/30 transition-colors group"

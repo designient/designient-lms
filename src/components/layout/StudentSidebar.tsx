@@ -17,6 +17,7 @@ import {
     Kanban,
     HelpCircle,
     Calendar,
+    Settings,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useBrand } from '@/components/BrandProvider';
@@ -49,6 +50,7 @@ const navItems = [
     { icon: HelpCircle, label: 'Quizzes', href: '/s/quizzes' },
     { icon: Search, label: 'Catalog', href: '/s/catalog' },
     { icon: User, label: 'Profile', href: '/s/profile' },
+    { icon: Settings, label: 'Settings', href: '/s/settings' },
 ];
 
 interface StudentSidebarProps {

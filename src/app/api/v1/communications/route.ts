@@ -6,41 +6,44 @@ import { messageSchema, formatZodErrors } from '@/lib/validations';
 import { logAudit } from '@/lib/audit';
 
 // GET /api/v1/communications - List messages
-export async function GET(req: NextRequest) {
-    try {
-        const { searchParams } = req.nextUrl;
-        const page = Math.max(1, Number(searchParams.get('page') || '1'));
-        const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || '12')));
-        const channel = searchParams.get('channel');
-        const status = searchParams.get('status');
+export const GET = withAuth(
+    async (req: NextRequest) => {
+        try {
+            const { searchParams } = req.nextUrl;
+            const page = Math.max(1, Number(searchParams.get('page') || '1'));
+            const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || '12')));
+            const channel = searchParams.get('channel');
+            const status = searchParams.get('status');
 
-        const where: Record<string, unknown> = {};
+            const where: Record<string, unknown> = {};
 
-        if (channel) where.channel = channel;
-        if (status) where.status = status;
+            if (channel) where.channel = channel;
+            if (status) where.status = status;
 
-        const [messages, total] = await Promise.all([
-            prisma.message.findMany({
-                where,
-                include: {
-                    sender: { select: { name: true } }
-                },
-                orderBy: { createdAt: 'desc' },
-                skip: (page - 1) * limit,
-                take: limit,
-            }),
-            prisma.message.count({ where }),
-        ]);
+            const [messages, total] = await Promise.all([
+                prisma.message.findMany({
+                    where,
+                    include: {
+                        sender: { select: { name: true } }
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    skip: (page - 1) * limit,
+                    take: limit,
+                }),
+                prisma.message.count({ where }),
+            ]);
 
-        return apiSuccess({
-            messages,
-            pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-        });
+            return apiSuccess({
+                messages,
+                pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+            });
 
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
+        } catch (error) {
+            return handleApiError(error);
+        }
+    },
+    ['ADMIN', 'INSTRUCTOR']
+);
 
 // POST /api/v1/communications - Send message
 export const POST = withAuth(
@@ -51,6 +54,25 @@ export const POST = withAuth(
 
             if (!parsed.success) {
                 return apiError('Validation failed', 422, 'VALIDATION_ERROR', formatZodErrors(parsed.error));
+            }
+
+            const settings = await prisma.settings.findFirst({
+                select: { securitySettings: true },
+                orderBy: { createdAt: 'asc' },
+            });
+            const securitySettings = (settings?.securitySettings || {}) as Record<string, unknown>;
+            const channelConfig = {
+                EMAIL: securitySettings.emailEnabled !== undefined ? Boolean(securitySettings.emailEnabled) : true,
+                WHATSAPP: securitySettings.whatsappEnabled !== undefined ? Boolean(securitySettings.whatsappEnabled) : false,
+                SMS: securitySettings.smsEnabled !== undefined ? Boolean(securitySettings.smsEnabled) : false,
+            };
+
+            if (!channelConfig[parsed.data.channel]) {
+                return apiError(
+                    `${parsed.data.channel} notifications are currently disabled in Settings.`,
+                    422,
+                    'CHANNEL_DISABLED'
+                );
             }
 
             // Logic to determine recipient count based on type
@@ -87,5 +109,5 @@ export const POST = withAuth(
             return handleApiError(error);
         }
     },
-    ['ADMIN', 'INSTRUCTOR', 'ADMIN']
+    ['ADMIN', 'INSTRUCTOR']
 );

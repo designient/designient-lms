@@ -1,5 +1,5 @@
 
-# Designient Admin LMS - Global UI Rules
+# Designient Workspace Admin - Global UI Rules
 
 ## Design Philosophy
 - **Calm, Modern SaaS** - Premium, confident, enterprise-ready

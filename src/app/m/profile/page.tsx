@@ -35,6 +35,8 @@ export default function MentorProfilePage() {
     const [bio, setBio] = useState('');
     const [specialization, setSpecialization] = useState('');
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarRemoved, setAvatarRemoved] = useState(false);
 
     // Password change
     const [showPasswordSection, setShowPasswordSection] = useState(false);
@@ -61,6 +63,8 @@ export default function MentorProfilePage() {
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        setAvatarFile(file);
+        setAvatarRemoved(false);
         // Preview
         const reader = new FileReader();
         reader.onloadend = () => setAvatarPreview(reader.result as string);
@@ -70,11 +74,27 @@ export default function MentorProfilePage() {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await apiClient.patch('/api/v1/me/profile', {
+            let nextAvatarUrl = profile?.avatarUrl || null;
+
+            if (avatarRemoved) {
+                nextAvatarUrl = null;
+            } else if (avatarFile) {
+                const uploadData = new FormData();
+                uploadData.append('file', avatarFile);
+                const upload = await apiClient.upload<{ avatarUrl: string }>('/api/v1/uploads/avatar', uploadData);
+                nextAvatarUrl = upload.avatarUrl;
+            }
+
+            const updated = await apiClient.patch<ProfileResponse>('/api/v1/me/profile', {
                 name,
                 bio,
                 specialization,
+                avatarUrl: nextAvatarUrl,
             });
+            setProfile(updated);
+            setAvatarPreview(updated.avatarUrl);
+            setAvatarFile(null);
+            setAvatarRemoved(false);
             toast({ title: 'Saved', description: 'Profile updated successfully.', variant: 'success' });
         } catch {
             toast({ title: 'Error', description: 'Failed to save profile.', variant: 'error' });
@@ -160,6 +180,19 @@ export default function MentorProfilePage() {
                             <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-medium">
                                 {profile.mentorProfile.status}
                             </span>
+                        )}
+                        {avatarPreview && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setAvatarPreview(null);
+                                    setAvatarFile(null);
+                                    setAvatarRemoved(true);
+                                }}
+                                className="mt-2 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                                Remove photo
+                            </button>
                         )}
                     </div>
                 </div>

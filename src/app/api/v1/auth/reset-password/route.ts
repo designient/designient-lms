@@ -2,9 +2,15 @@ import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import prisma from '@/lib/prisma';
 import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
-import { resetPasswordSchema, formatZodErrors } from '@/lib/validations';
 import { logAudit } from '@/lib/audit';
 import { rateLimit } from '@/lib/middleware/rateLimit';
+import { z } from 'zod';
+import { clearLoginAttempts, getSecurityPolicy, validatePasswordWithPolicy } from '@/lib/security-policy';
+
+const resetSchema = z.object({
+    token: z.string().min(1),
+    password: z.string().min(1).max(128),
+});
 
 export async function POST(req: NextRequest) {
     try {
@@ -12,12 +18,17 @@ export async function POST(req: NextRequest) {
         if (rateLimited) return rateLimited;
 
         const body = await req.json();
-        const parsed = resetPasswordSchema.safeParse(body);
+        const parsed = resetSchema.safeParse(body);
         if (!parsed.success) {
-            return apiError('Validation failed', 422, 'VALIDATION_ERROR', formatZodErrors(parsed.error));
+            return apiError('Validation failed', 422, 'VALIDATION_ERROR', parsed.error.format());
         }
 
         const { token, password } = parsed.data;
+        const policy = await getSecurityPolicy();
+        const validationError = validatePasswordWithPolicy(password, policy);
+        if (validationError) {
+            return apiError(validationError, 422, 'VALIDATION_ERROR');
+        }
 
         const user = await prisma.user.findFirst({
             where: {
@@ -49,6 +60,8 @@ export async function POST(req: NextRequest) {
                 data: { status: 'ACTIVE' },
             }),
         ]);
+
+        await clearLoginAttempts(user.email.toLowerCase());
 
         await logAudit(user.id, 'PASSWORD_RESET', 'User', user.id);
 

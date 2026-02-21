@@ -12,7 +12,7 @@ const s3 = new S3Client({
     forcePathStyle: true,
 });
 
-const BUCKET = process.env.S3_BUCKET || 'lms-uploads';
+const BUCKET = process.env.S3_BUCKET || 'workspace-uploads';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = [
     'application/pdf',

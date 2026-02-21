@@ -52,7 +52,9 @@ import {
     Link2,
     Eye,
     EyeOff,
-    BarChart3
+    BarChart3,
+    UserX,
+    UserCheck2
 } from 'lucide-react';
 import {
     AuditLogEntry,
@@ -78,6 +80,17 @@ interface SettingsPageProps {
     onBillingClick?: () => void;
     onSelectEntity?: (type: 'student' | 'mentor' | 'cohort', id: string) => void;
 }
+
+type TeamMemberSettings = {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    avatarUrl?: string | null;
+    createdAt: string;
+    status: 'INVITED' | 'ACTIVE' | 'DEACTIVATED';
+    isActive: boolean;
+};
 
 // Helper to convert hex color to HSL string for CSS variables
 function hexToHsl(hex: string): string | null {
@@ -197,13 +210,14 @@ export default function SettingsPage({
     const [newSpecialtyLabel, setNewSpecialtyLabel] = useState('');
 
     // Team states
-    const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; email: string; role: string; avatarUrl?: string; createdAt: string }[]>([]);
+    const [teamMembers, setTeamMembers] = useState<TeamMemberSettings[]>([]);
     const [isTeamLoading, setIsTeamLoading] = useState(false);
     const [showInviteForm, setShowInviteForm] = useState(false);
     const [inviteName, setInviteName] = useState('');
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState('INSTRUCTOR');
     const [isInviting, setIsInviting] = useState(false);
+    const [teamActionLoading, setTeamActionLoading] = useState<Record<string, boolean>>({});
 
     // Security settings states
     const [minPasswordLength, setMinPasswordLength] = useState(8);
@@ -347,24 +361,40 @@ export default function SettingsPage({
     }, [activeTab, subscription, isSubLoading]);
 
     // Fetch team members when team tab is active
+    const refreshTeamMembers = async () => {
+        setIsTeamLoading(true);
+        try {
+            const res = await apiClient.get<{ team: TeamMemberSettings[] }>('/api/v1/settings/team');
+            setTeamMembers(res.team);
+        } catch {
+            setTeamMembers([]);
+        } finally {
+            setIsTeamLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'team' && teamMembers.length === 0) {
-            setIsTeamLoading(true);
-            apiClient.get<{ team: typeof teamMembers }>('/api/v1/settings/team')
-                .then(res => setTeamMembers(res.team))
-                .catch(() => setTeamMembers([]))
-                .finally(() => setIsTeamLoading(false));
+            refreshTeamMembers();
         }
     }, [activeTab, teamMembers.length]);
 
     // Fetch data counts when data tab is active
     useEffect(() => {
         if (activeTab === 'data' && dataCounts.students === 0) {
-            apiClient.get<{ totalStudents: number; totalMentors: number; totalCohorts: number; totalCourses: number }>('/api/v1/admin/dashboard/summary')
+            apiClient.get<{
+                totalStudents?: number;
+                totalMentors?: number;
+                totalCohorts?: number;
+                totalCourses?: number;
+                students?: { total?: number };
+                mentors?: { total?: number };
+                cohorts?: { total?: number };
+            }>('/api/v1/admin/dashboard/summary')
                 .then(res => setDataCounts({
-                    students: res.totalStudents || 0,
-                    mentors: res.totalMentors || 0,
-                    cohorts: res.totalCohorts || 0,
+                    students: res.students?.total ?? res.totalStudents ?? 0,
+                    mentors: res.mentors?.total ?? res.totalMentors ?? 0,
+                    cohorts: res.cohorts?.total ?? res.totalCohorts ?? 0,
                     courses: res.totalCourses || 0,
                     messages: 0,
                 }))
@@ -475,7 +505,7 @@ export default function SettingsPage({
         }
         setIsInviting(true);
         try {
-            const newMember = await apiClient.post<{ id: string; name: string; email: string; role: string; createdAt: string }>('/api/v1/settings/team', {
+            const newMember = await apiClient.post<TeamMemberSettings>('/api/v1/settings/team', {
                 name: inviteName.trim(),
                 email: inviteEmail.trim(),
                 role: inviteRole,
@@ -491,6 +521,44 @@ export default function SettingsPage({
         } finally {
             setIsInviting(false);
         }
+    };
+
+    const withTeamMemberLoading = async (memberId: string, action: () => Promise<void>) => {
+        setTeamActionLoading((prev) => ({ ...prev, [memberId]: true }));
+        try {
+            await action();
+        } finally {
+            setTeamActionLoading((prev) => ({ ...prev, [memberId]: false }));
+        }
+    };
+
+    const handleResendInvite = async (member: TeamMemberSettings) => {
+        await withTeamMemberLoading(member.id, async () => {
+            try {
+                await apiClient.post(`/api/v1/settings/team/${member.id}/resend-invite`, {});
+                toast({ title: 'Invite Resent', description: `Invitation resent to ${member.email}.`, variant: 'success' });
+            } catch {
+                toast({ title: 'Error', description: 'Failed to resend invitation.', variant: 'error' });
+            }
+        });
+    };
+
+    const handleToggleTeamMember = async (member: TeamMemberSettings) => {
+        await withTeamMemberLoading(member.id, async () => {
+            try {
+                const updated = await apiClient.patch<TeamMemberSettings>(`/api/v1/settings/team/${member.id}/status`, {
+                    isActive: !member.isActive,
+                });
+                setTeamMembers((prev) => prev.map((m) => (m.id === member.id ? updated : m)));
+                toast({
+                    title: updated.isActive ? 'Member Activated' : 'Member Deactivated',
+                    description: `${updated.name} is now ${updated.isActive ? 'active' : 'deactivated'}.`,
+                    variant: 'success',
+                });
+            } catch {
+                toast({ title: 'Error', description: 'Failed to update team member status.', variant: 'error' });
+            }
+        });
     };
 
     // CSV Export handler
@@ -1014,7 +1082,15 @@ export default function SettingsPage({
                                                 </div>
                                                 <div className="space-y-1">
                                                     <Label htmlFor="inviteRole" className="text-xs">Role</Label>
-                                                    <Select id="inviteRole" options={[{ value: 'INSTRUCTOR', label: 'Instructor' }, { value: 'ADMIN', label: 'Admin' }]} value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} />
+                                                    <Select
+                                                        id="inviteRole"
+                                                        options={[
+                                                            { value: 'INSTRUCTOR', label: 'Instructor' },
+                                                            { value: 'ADMIN', label: 'Admin' },
+                                                        ]}
+                                                        value={inviteRole}
+                                                        onChange={(e) => setInviteRole(e.target.value)}
+                                                    />
                                                 </div>
                                             </div>
                                             <div className="flex gap-2 justify-end">
@@ -1055,11 +1131,59 @@ export default function SettingsPage({
                                                         <p className="text-xs text-muted-foreground truncate">{member.email}</p>
                                                     </div>
                                                     <Badge variant={member.role === 'ADMIN' ? 'default' : 'outline'} className="text-[10px]">
-                                                        {member.role === 'ADMIN' ? 'Admin' : 'Instructor'}
+                                                        {member.role === 'ADMIN'
+                                                            ? 'Admin'
+                                                            : 'Instructor'}
+                                                    </Badge>
+                                                    <Badge
+                                                        variant={
+                                                            member.status === 'ACTIVE'
+                                                                ? 'success'
+                                                                : member.status === 'INVITED'
+                                                                    ? 'default'
+                                                                    : 'destructive'
+                                                        }
+                                                        className="text-[10px]"
+                                                    >
+                                                        {member.status}
                                                     </Badge>
                                                     <span className="text-[11px] text-muted-foreground hidden sm:block">
                                                         Joined {new Date(member.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                                     </span>
+                                                    <div className="flex items-center gap-1">
+                                                        {member.status === 'INVITED' && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-7 px-2 text-[11px]"
+                                                                onClick={() => handleResendInvite(member)}
+                                                                disabled={teamActionLoading[member.id]}
+                                                            >
+                                                                {teamActionLoading[member.id] ? (
+                                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                                ) : (
+                                                                    <Copy className="h-3 w-3" />
+                                                                )}
+                                                                Resend
+                                                            </Button>
+                                                        )}
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="h-7 px-2 text-[11px]"
+                                                            onClick={() => handleToggleTeamMember(member)}
+                                                            disabled={teamActionLoading[member.id]}
+                                                        >
+                                                            {teamActionLoading[member.id] ? (
+                                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                            ) : member.isActive ? (
+                                                                <UserX className="h-3 w-3" />
+                                                            ) : (
+                                                                <UserCheck2 className="h-3 w-3" />
+                                                            )}
+                                                            {member.isActive ? 'Deactivate' : 'Activate'}
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>

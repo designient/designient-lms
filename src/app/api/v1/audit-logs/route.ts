@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { apiSuccess, handleApiError } from '@/lib/errors';
+import { withAuth } from '@/lib/middleware/rbac';
 
-export async function GET(req: NextRequest) {
+export const GET = withAuth(async (req: NextRequest) => {
     try {
         const { searchParams } = req.nextUrl;
         const page = Math.max(1, Number(searchParams.get('page') || '1'));
@@ -41,4 +42,4 @@ export async function GET(req: NextRequest) {
     } catch (error) {
         return handleApiError(error);
     }
-}
+}, ['ADMIN']);

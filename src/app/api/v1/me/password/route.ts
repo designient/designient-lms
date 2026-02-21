@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { changePasswordSchema, formatZodErrors } from '@/lib/validations';
 import { withAuth } from '@/lib/middleware/rbac';
+import { getSecurityPolicy, validatePasswordWithPolicy } from '@/lib/security-policy';
 
 // POST /api/v1/me/password — change password for authenticated user
 export const POST = withAuth(async (req: NextRequest, _ctx, user) => {
@@ -15,6 +16,11 @@ export const POST = withAuth(async (req: NextRequest, _ctx, user) => {
         }
 
         const { currentPassword, newPassword } = parsed.data;
+        const policy = await getSecurityPolicy();
+        const validationError = validatePasswordWithPolicy(newPassword, policy);
+        if (validationError) {
+            return apiError(validationError, 422, 'VALIDATION_ERROR');
+        }
 
         const dbUser = await prisma.user.findUnique({
             where: { id: user.id },

@@ -31,8 +31,27 @@ export async function proxy(req: NextRequest) {
         secureCookie: process.env.NODE_ENV === 'production',
     });
     const role = token?.role as string | undefined;
+    const rawSessionExpiresAt = token?.sessionExpiresAt;
+    const sessionExpiresAt =
+        typeof rawSessionExpiresAt === 'number'
+            ? rawSessionExpiresAt
+            : typeof rawSessionExpiresAt === 'string'
+                ? Number(rawSessionExpiresAt)
+                : null;
 
     if (!token) {
+        const loginUrl = new URL('/login', req.url);
+        loginUrl.searchParams.set('callbackUrl', pathname);
+        return NextResponse.redirect(loginUrl);
+    }
+
+    if (!role) {
+        const loginUrl = new URL('/login', req.url);
+        loginUrl.searchParams.set('callbackUrl', pathname);
+        return NextResponse.redirect(loginUrl);
+    }
+
+    if (sessionExpiresAt && !Number.isNaN(sessionExpiresAt) && Date.now() > sessionExpiresAt) {
         const loginUrl = new URL('/login', req.url);
         loginUrl.searchParams.set('callbackUrl', pathname);
         return NextResponse.redirect(loginUrl);

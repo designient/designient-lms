@@ -38,7 +38,7 @@ export const GET = withAuth(
             return handleApiError(error);
         }
     },
-    ['ADMIN', 'INSTRUCTOR', 'ADMIN', 'STUDENT']
+    ['ADMIN']
 );
 
 // PUT /api/v1/settings - Update settings

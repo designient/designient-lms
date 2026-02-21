@@ -1,44 +1,57 @@
 'use client';
 
 import React from 'react';
-import { User, Settings, LogOut, HelpCircle, Sun, Moon, Monitor } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { User, Settings, LogOut, HelpCircle, Sun, Moon, Monitor, ShieldCheck, FileText } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useTheme, type Theme } from '@/hooks/useTheme';
-import { useToast } from '@/components/ui/Toast';
 import type { PageName } from '@/types';
 
 interface UserMenuProps {
     open: boolean;
     onClose: () => void;
-    onNavigate: (page: PageName) => void;
+    onNavigate?: (page: PageName) => void;
+    profileHref?: string;
+    settingsHref?: string;
 }
 
-export function UserMenu({ open, onClose, onNavigate }: UserMenuProps) {
+const PRIVACY_URL = 'https://designient.com/privacy-policy';
+const TERMS_URL = 'https://designient.com/terms-and-conditions';
+const SUPPORT_URL = 'https://designient.com/contact-us';
+
+function getRoleDefaultRoutes(role?: string) {
+    if (role === 'INSTRUCTOR') {
+        return { profileHref: '/m/profile', settingsHref: '/m/settings' };
+    }
+    if (role === 'STUDENT') {
+        return { profileHref: '/s/profile', settingsHref: '/s/settings' };
+    }
+    return { profileHref: '/settings', settingsHref: '/settings' };
+}
+
+export function UserMenu({ open, onClose, onNavigate, profileHref, settingsHref }: UserMenuProps) {
     const { theme, setTheme, resolvedTheme } = useTheme();
     const { data: session } = useSession();
-    const { toast } = useToast();
+    const router = useRouter();
 
     if (!open) return null;
 
-    const handleNavigate = (page: PageName) => {
-        onNavigate(page);
+    const defaults = getRoleDefaultRoutes(session?.user?.role);
+    const resolvedProfileHref = profileHref || defaults.profileHref;
+    const resolvedSettingsHref = settingsHref || defaults.settingsHref;
+
+    const handleNavigate = (page: PageName, href: string) => {
+        if (onNavigate) {
+            onNavigate(page);
+        } else {
+            router.push(href);
+        }
         onClose();
     };
 
     const handleLogout = () => {
         signOut({ callbackUrl: '/login' });
-        onClose();
-    };
-
-
-
-    const handleHelp = () => {
-        // Placeholder for Help & Support
-        toast({
-            title: 'Help & Support',
-            description: 'For support, please contact the administrator.',
-            variant: 'info',
-        });
         onClose();
     };
 
@@ -94,26 +107,49 @@ export function UserMenu({ open, onClose, onNavigate }: UserMenuProps) {
                 {/* Navigation Links */}
                 <div className="p-1">
                     <button
-                        onClick={() => handleNavigate('settings')}
+                        onClick={() => handleNavigate('settings', resolvedProfileHref)}
                         className="w-full flex items-center gap-2 px-2 py-1.5 text-[13px] text-foreground rounded-md hover:bg-muted/60 transition-colors"
                     >
                         <User className="h-3.5 w-3.5 text-muted-foreground" />
                         Profile
                     </button>
                     <button
-                        onClick={() => handleNavigate('settings')}
+                        onClick={() => handleNavigate('settings', resolvedSettingsHref)}
                         className="w-full flex items-center gap-2 px-2 py-1.5 text-[13px] text-foreground rounded-md hover:bg-muted/60 transition-colors"
                     >
                         <Settings className="h-3.5 w-3.5 text-muted-foreground" />
                         Settings
                     </button>
-                    <button
-                        onClick={handleHelp}
+                    <Link
+                        href={PRIVACY_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={onClose}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 text-[13px] text-foreground rounded-md hover:bg-muted/60 transition-colors"
+                    >
+                        <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                        Privacy Policy
+                    </Link>
+                    <Link
+                        href={TERMS_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={onClose}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 text-[13px] text-foreground rounded-md hover:bg-muted/60 transition-colors"
+                    >
+                        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                        Terms of Service
+                    </Link>
+                    <Link
+                        href={SUPPORT_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={onClose}
                         className="w-full flex items-center gap-2 px-2 py-1.5 text-[13px] text-foreground rounded-md hover:bg-muted/60 transition-colors"
                     >
                         <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
                         Help & Support
-                    </button>
+                    </Link>
                 </div>
 
                 {/* Logout */}

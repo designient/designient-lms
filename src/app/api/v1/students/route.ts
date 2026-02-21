@@ -89,7 +89,7 @@ export const POST = withAuth(
             const body = await req.json();
             // Expected body: { email, name, cohortId, phone, ...profile }
 
-            const { email, name, ...profileData } = body;
+            const { email, name, avatarUrl, ...profileData } = body;
 
             let targetUserId = body.userId;
 
@@ -103,6 +103,7 @@ export const POST = withAuth(
                         data: {
                             email,
                             name: name || email.split('@')[0],
+                            avatarUrl: typeof avatarUrl === 'string' ? avatarUrl : null,
                             role: 'STUDENT',
                             passwordHash: 'PENDING_SETUP',
                             isActive: true,
@@ -141,6 +142,13 @@ export const POST = withAuth(
                 },
                 include: { user: true, cohort: true }
             });
+
+            if (typeof avatarUrl === 'string') {
+                await prisma.user.update({
+                    where: { id: targetUserId },
+                    data: { avatarUrl },
+                });
+            }
 
             // Auto-enroll in the cohort syllabus (cohort courses + program-linked course).
             if (parsed.data.cohortId) {

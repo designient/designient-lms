@@ -59,6 +59,43 @@ export const PUT = withAuth(
                 return apiError('Student not found', 404, 'NOT_FOUND');
             }
 
+            const bodyName = typeof body.name === 'string' ? body.name.trim() : undefined;
+            const bodyEmail = typeof body.email === 'string' ? body.email.trim() : undefined;
+            const bodyAvatarUrl = body.avatarUrl;
+
+            if (bodyEmail) {
+                const existingEmail = await prisma.user.findFirst({
+                    where: {
+                        email: bodyEmail,
+                        id: { not: existing.userId },
+                    },
+                    select: { id: true },
+                });
+                if (existingEmail) {
+                    return apiError('Email already in use', 409, 'EMAIL_EXISTS');
+                }
+            }
+
+            const userUpdate: Record<string, unknown> = {};
+            if (bodyName) userUpdate.name = bodyName;
+            if (bodyEmail) userUpdate.email = bodyEmail;
+            if (bodyAvatarUrl !== undefined) {
+                if (bodyAvatarUrl === null || bodyAvatarUrl === '') {
+                    userUpdate.avatarUrl = null;
+                } else if (typeof bodyAvatarUrl === 'string') {
+                    userUpdate.avatarUrl = bodyAvatarUrl;
+                } else {
+                    return apiError('Invalid avatarUrl', 422, 'VALIDATION_ERROR');
+                }
+            }
+
+            if (Object.keys(userUpdate).length > 0) {
+                await prisma.user.update({
+                    where: { id: existing.userId },
+                    data: userUpdate,
+                });
+            }
+
             const updatedStudent = await prisma.studentProfile.update({
                 where: { id },
                 data: parsed.data,

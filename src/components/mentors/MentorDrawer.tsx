@@ -3,6 +3,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
+import { Select } from '../ui/Select';
 import { DrawerSection, DrawerDivider } from '../ui/Drawer';
 import {
     AssignMentorToCohortModal,
@@ -49,7 +50,12 @@ export function MentorDrawer({
     const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
-    const [maxCohorts, setMaxCohorts] = useState(mentor.maxCohorts);
+    const maxCohorts = mentor.maxCohorts;
+    const availabilityOptions = [
+        { value: 'Available', label: 'Available' },
+        { value: 'Limited', label: 'Limited' },
+        { value: 'Unavailable', label: 'Unavailable' },
+    ];
 
     const getCohortStatusVariant = (status: string) => {
         switch (status) {
@@ -102,10 +108,16 @@ export function MentorDrawer({
 
     const handleMaxCohortsChange = (value: number) => {
         const newMax = Math.max(1, Math.min(10, value));
-        setMaxCohorts(newMax);
         onUpdateMentor({
             ...mentor,
             maxCohorts: newMax
+        });
+    };
+
+    const handleAvailabilityChange = (value: string) => {
+        onUpdateMentor({
+            ...mentor,
+            availabilityStatus: value as Mentor['availabilityStatus'],
         });
     };
 
@@ -145,9 +157,18 @@ export function MentorDrawer({
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-start gap-4">
-                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/10 flex items-center justify-center text-xl font-semibold text-emerald-700 flex-shrink-0">
-                    {mentor.name.charAt(0)}
-                </div>
+                {mentor.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                        src={mentor.avatarUrl}
+                        alt={mentor.name}
+                        className="h-14 w-14 rounded-xl object-cover border border-border/50 flex-shrink-0"
+                    />
+                ) : (
+                    <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/10 flex items-center justify-center text-xl font-semibold text-emerald-700 flex-shrink-0">
+                        {mentor.name.charAt(0)}
+                    </div>
+                )}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <h2 className="text-lg font-semibold text-foreground truncate">
@@ -348,6 +369,15 @@ export function MentorDrawer({
                         <Badge variant={getAvailabilityVariant(mentor.availabilityStatus)}>
                             {mentor.availabilityStatus}
                         </Badge>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="availabilityStatus">Update Availability</Label>
+                        <Select
+                            id="availabilityStatus"
+                            options={availabilityOptions}
+                            value={mentor.availabilityStatus}
+                            onChange={(e) => handleAvailabilityChange(e.target.value)}
+                        />
                     </div>
 
                     <div className="space-y-1.5">

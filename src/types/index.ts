@@ -28,6 +28,7 @@ export interface Student {
     id: string;
     name: string;
     email: string;
+    avatarUrl?: string | null;
     phone?: string;
     alternatePhone?: string;
     whatsappOptIn?: boolean;
@@ -56,6 +57,7 @@ export interface Mentor {
     id: string;
     name: string;
     email: string;
+    avatarUrl?: string | null;
     phone?: string;
     whatsappOptIn?: boolean;
     status: 'Active' | 'Inactive';
@@ -403,6 +405,41 @@ export interface CommunicationStats {
         whatsapp: number;
         sms: number;
     };
+}
+
+export interface PublicSettingsPayload {
+    orgName: string;
+    orgSlug: string;
+    logoUrl: string | null;
+    primaryColor: string | null;
+    supportEmail: string | null;
+}
+
+export interface SettingsSecuritySection {
+    whatsappEnabled?: boolean;
+    emailEnabled?: boolean;
+    smsEnabled?: boolean;
+    pushEnabled?: boolean;
+    minPasswordLength?: number;
+    requireUppercase?: boolean;
+    requireNumbers?: boolean;
+    requireSpecialChars?: boolean;
+    sessionTimeout?: '15m' | '30m' | '1h' | '4h' | '24h';
+    maxLoginAttempts?: number;
+    lockoutMinutes?: number;
+}
+
+export interface SettingsIntegrationSection {
+    zoomEnabled?: boolean;
+    zoomApiKey?: string;
+    zoomApiSecret?: string;
+    meetEnabled?: boolean;
+    meetClientId?: string;
+    whatsappBizEnabled?: boolean;
+    whatsappBizPhone?: string;
+    whatsappBizToken?: string;
+    webhookUrl?: string;
+    webhookEnabled?: boolean;
 }
 
 export type PageName =

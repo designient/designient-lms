@@ -1,6 +1,6 @@
-# LearnHub — Learning Management System
+# Designient Workspace — CohortOS Platform
 
-A production-grade LMS with student enrollment, lesson delivery, assignment submission/grading, and admin management.
+A production-grade CohortOS platform with student enrollment, lesson delivery, assignment submission/grading, and admin management.
 
 ## Tech Stack
 
@@ -24,7 +24,7 @@ A production-grade LMS with student enrollment, lesson delivery, assignment subm
 ### 1. Clone & Install
 
 ```bash
-cd designient-lms
+cd <project-folder>
 npm install --legacy-peer-deps
 ```
 
@@ -44,7 +44,7 @@ Copy and configure `.env`:
 
 ```bash
 # Already provided — key variables:
-DATABASE_URL="postgresql://lms_user:lms_password@localhost:5432/lms_db"
+DATABASE_URL="postgresql://workspace_user:workspace_password@localhost:5432/workspace_db"
 NEXTAUTH_SECRET="your-secret-key"
 NEXTAUTH_URL="http://localhost:3000"
 
@@ -52,7 +52,7 @@ NEXTAUTH_URL="http://localhost:3000"
 S3_ENDPOINT="http://localhost:9000"
 S3_ACCESS_KEY="minioadmin"
 S3_SECRET_KEY="minioadmin"
-S3_BUCKET="lms-uploads"
+S3_BUCKET="workspace-uploads"
 S3_REGION="us-east-1"
 
 # Email (optional for dev)
@@ -88,10 +88,10 @@ Open [http://localhost:3000](http://localhost:3000)
 
 | Role | Email | Password |
 |------|-------|----------|
-| Admin | admin@lms.com | Password1 |
-| Instructor | instructor@lms.com | Password1 |
-| Student | student@lms.com | Password1 |
-| Student | alice@lms.com | Password1 |
+| Admin | admin@workspace.local | Password1 |
+| Instructor | instructor@workspace.local | Password1 |
+| Student | student@workspace.local | Password1 |
+| Student | alice@workspace.local | Password1 |
 
 ## Project Structure
 

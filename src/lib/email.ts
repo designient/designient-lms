@@ -15,9 +15,9 @@ const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 export async function sendPasswordResetEmail(email: string, token: string) {
     const resetUrl = `${APP_URL}/reset-password?token=${token}`;
     await transporter.sendMail({
-        from: process.env.SMTP_FROM || 'noreply@lms.local',
+        from: process.env.SMTP_FROM || 'noreply@workspace.local',
         to: email,
-        subject: 'Reset Your Password — LMS',
+        subject: 'Reset Your Password — Designient Workspace',
         html: `
       <h2>Password Reset</h2>
       <p>Click the link below to reset your password. This link expires in 1 hour.</p>
@@ -30,9 +30,9 @@ export async function sendPasswordResetEmail(email: string, token: string) {
 export async function sendVerificationEmail(email: string, token: string) {
     const verifyUrl = `${APP_URL}/api/v1/auth/verify?token=${token}`;
     await transporter.sendMail({
-        from: process.env.SMTP_FROM || 'noreply@lms.local',
+        from: process.env.SMTP_FROM || 'noreply@workspace.local',
         to: email,
-        subject: 'Verify Your Email — LMS',
+        subject: 'Verify Your Email — Designient Workspace',
         html: `
       <h2>Email Verification</h2>
       <p>Click the link below to verify your email address.</p>
@@ -51,12 +51,12 @@ export async function sendInvitationEmail(
     const roleName = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
 
     await transporter.sendMail({
-        from: process.env.SMTP_FROM || 'noreply@lms.local',
+        from: process.env.SMTP_FROM || 'noreply@workspace.local',
         to: email,
-        subject: `You have been invited to join LMS as a ${roleName}`,
+        subject: `You have been invited to join Designient Workspace as a ${roleName}`,
         html: `
       <h2>Welcome, ${name}!</h2>
-      <p>You have been invited to join the platform as a <strong>${roleName}</strong>.</p>
+      <p>You have been invited to join Designient Workspace as a <strong>${roleName}</strong>.</p>
       <p>To get started, please click the link below to set up your password and access your account:</p>
       <a href="${setupUrl}" style="display: inline-block; padding: 10px 20px; background-color: #0070f3; color: white; text-decoration: none; border-radius: 5px;">Set Up Account</a>
       <p>Or copy this link: <br /> <a href="${setupUrl}">${setupUrl}</a></p>

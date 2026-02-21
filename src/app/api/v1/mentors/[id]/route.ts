@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
@@ -15,11 +16,22 @@ export async function GET(
         const mentor = await prisma.mentorProfile.findUnique({
             where: { id: mentorId },
             include: {
-                user: { select: { id: true, name: true, email: true, avatarUrl: true, createdAt: true } },
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        avatarUrl: true,
+                        createdAt: true,
+                        updatedAt: true,
+                        _count: { select: { studentsMentored: true } },
+                    }
+                },
                 cohorts: {
                     select: { id: true, name: true, startDate: true, status: true },
                     orderBy: { startDate: 'desc' }
-                }
+                },
+                _count: { select: { ratings: true } },
             }
         });
 
@@ -33,6 +45,9 @@ export async function GET(
             email: mentor.user.email,
             avatarUrl: mentor.user.avatarUrl,
             joinDate: mentor.user.createdAt,
+            lastActive: mentor.user.updatedAt,
+            totalReviews: mentor._count.ratings,
+            totalStudentsMentored: mentor.user._count.studentsMentored,
         });
     } catch (error) {
         return handleApiError(error);
@@ -57,6 +72,42 @@ export const PUT = withAuth(
             }
 
             const { cohortIds, ...updateData } = parsed.data;
+            const bodyName = typeof body.name === 'string' ? body.name.trim() : undefined;
+            const bodyEmail = typeof body.email === 'string' ? body.email.trim() : undefined;
+            const bodyAvatarUrl = body.avatarUrl;
+
+            if (bodyEmail) {
+                const existingEmail = await prisma.user.findFirst({
+                    where: {
+                        email: bodyEmail,
+                        id: { not: existing.userId },
+                    },
+                    select: { id: true },
+                });
+                if (existingEmail) {
+                    return apiError('Email already in use', 409, 'EMAIL_EXISTS');
+                }
+            }
+
+            const userUpdate: Record<string, unknown> = {};
+            if (bodyName) userUpdate.name = bodyName;
+            if (bodyEmail) userUpdate.email = bodyEmail;
+            if (bodyAvatarUrl !== undefined) {
+                if (bodyAvatarUrl === null || bodyAvatarUrl === '') {
+                    userUpdate.avatarUrl = null;
+                } else if (typeof bodyAvatarUrl === 'string') {
+                    userUpdate.avatarUrl = bodyAvatarUrl;
+                } else {
+                    return apiError('Invalid avatarUrl', 422, 'VALIDATION_ERROR');
+                }
+            }
+
+            if (Object.keys(userUpdate).length > 0) {
+                await prisma.user.update({
+                    where: { id: existing.userId },
+                    data: userUpdate,
+                });
+            }
 
             const updatedMentor = await prisma.mentorProfile.update({
                 where: { id },
@@ -105,9 +156,9 @@ export const DELETE = withAuth(
                 await logAudit(user.id, 'MENTOR_DELETED', 'User', mentor.userId);
 
                 return apiSuccess({ message: 'Mentor permanently deleted' });
-            } catch (err: any) {
+            } catch (err: unknown) {
                 // Check for Foreign Key constraint violation (P2003)
-                if (err.code === 'P2003') {
+                if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
                     return apiError(
                         'Cannot delete mentor because they have associated content (Courses, Assignments, etc.). Please reassign or delete these resources first.',
                         409,

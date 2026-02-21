@@ -19,6 +19,7 @@ import {
     FolderOpen,
     Library,
     ListChecks,
+    Settings,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useBrand } from '@/components/BrandProvider';
@@ -54,6 +55,7 @@ const navItems = [
     { icon: HelpCircle, label: 'Quizzes', href: '/m/quizzes' },
     { icon: Library, label: 'Question Bank', href: '/m/question-bank' },
     { icon: User, label: 'Profile', href: '/m/profile' },
+    { icon: Settings, label: 'Settings', href: '/m/settings' },
 ];
 
 interface MentorSidebarProps {

@@ -20,7 +20,7 @@ export const GET = withAuth(
                         select: {
                             id: true,
                             name: true,
-                            program: { select: { id: true, name: true } },
+                            program: { select: { id: true, name: true, courseId: true } },
                         },
                     },
                 },
@@ -31,9 +31,17 @@ export const GET = withAuth(
                 await ensureStudentEnrollmentsForCohort(user.id, studentProfile.cohortId);
             }
 
+            const enrollmentWhere: Record<string, unknown> = { userId: user.id };
+            const programCourseId = studentProfile?.cohort?.program?.courseId || null;
+            if (programCourseId) {
+                enrollmentWhere.courseId = programCourseId;
+            } else {
+                enrollmentWhere.course = { program: { isNot: null } };
+            }
+
             const [enrollments, total] = await Promise.all([
                 prisma.enrollment.findMany({
-                    where: { userId: user.id },
+                    where: enrollmentWhere,
                     include: {
                         course: {
                             include: {
@@ -51,7 +59,7 @@ export const GET = withAuth(
                     skip: (page - 1) * limit,
                     take: limit,
                 }),
-                prisma.enrollment.count({ where: { userId: user.id } }),
+                prisma.enrollment.count({ where: enrollmentWhere }),
             ]);
 
             // Calculate progress for each course

@@ -24,6 +24,12 @@ enum ContentType {
   FILE
 }
 
+enum SyllabusDraftStatus {
+  DRAFT
+  PENDING_APPROVAL
+  REJECTED
+}
+
 enum EnrollmentStatus {
   ACTIVE
   COMPLETED
@@ -61,6 +67,12 @@ enum MentorStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+}
+
+enum MentorAvailabilityStatus {
+  AVAILABLE
+  LIMITED
+  UNAVAILABLE
 }
 
 enum MessageChannel {
@@ -125,6 +137,7 @@ enum AttendanceStatus {
   EXCUSED
 }
 
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -137,6 +150,8 @@ model User {
   resetTokenExp DateTime? @map("reset_token_exp")
   verifyToken   String?  @map("verify_token")
   avatarUrl     String?  @map("avatar_url")
+  emailNotifications Boolean @default(true) @map("email_notifications")
+  pushNotifications  Boolean @default(true) @map("push_notifications")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -157,8 +172,25 @@ model User {
   markedAttendances Attendance[] @relation("AttendanceMarker")
   studentAttendances Attendance[] @relation("AttendanceStudent")
   studentsMentored   StudentProfile[] @relation("StudentMentor")
+  draftsCreated      SyllabusDraft[] @relation("SyllabusDraftCreator")
+  draftsUpdated      SyllabusDraft[] @relation("SyllabusDraftUpdater")
+  draftsSubmitted    SyllabusDraft[] @relation("SyllabusDraftSubmitter")
+  draftsReviewed     SyllabusDraft[] @relation("SyllabusDraftReviewer")
 
   @@map("users")
+}
+
+model LoginAttempt {
+  id            String    @id @default(cuid())
+  identifier    String    @unique
+  attempts      Int       @default(0)
+  lockedUntil   DateTime? @map("locked_until")
+  lastAttemptAt DateTime  @default(now()) @map("last_attempt_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([lockedUntil])
+  @@map("login_attempts")
 }
 
 model Course {
@@ -182,11 +214,38 @@ model Course {
   sessions      ClassSession[]
   quizzes       Quiz[]
   assignments Assignment[]
+  syllabusDraft SyllabusDraft?
 
   @@index([createdBy])
   @@index([isPublished])
   @@index([createdAt])
   @@map("courses")
+}
+
+model SyllabusDraft {
+  id            String              @id @default(cuid())
+  courseId      String              @unique @map("course_id")
+  status        SyllabusDraftStatus @default(DRAFT)
+  snapshot      Json
+  createdBy     String              @map("created_by")
+  updatedBy     String              @map("updated_by")
+  submittedBy   String?             @map("submitted_by")
+  submittedAt   DateTime?           @map("submitted_at")
+  reviewedBy    String?             @map("reviewed_by")
+  reviewedAt    DateTime?           @map("reviewed_at")
+  reviewComment String?             @map("review_comment")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  course        Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  creator       User                @relation("SyllabusDraftCreator", fields: [createdBy], references: [id])
+  updater       User                @relation("SyllabusDraftUpdater", fields: [updatedBy], references: [id])
+  submitter     User?               @relation("SyllabusDraftSubmitter", fields: [submittedBy], references: [id])
+  reviewer      User?               @relation("SyllabusDraftReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([status])
+  @@index([updatedAt])
+  @@map("syllabus_drafts")
 }
 
 model Module {
@@ -390,6 +449,7 @@ model StudentProfile {
   cohort         Cohort?       @relation(fields: [cohortId], references: [id], onDelete: SetNull)
   mentor         User?         @relation("StudentMentor", fields: [mentorId], references: [id], onDelete: SetNull)
   notes          StudentNote[]
+  mentorRatings  MentorRating[]
 
   @@index([userId])
   @@index([cohortId])
@@ -402,6 +462,7 @@ model MentorProfile {
   id             String       @id @default(cuid())
   userId         String       @unique @map("user_id")
   status         MentorStatus @default(ACTIVE)
+  availabilityStatus MentorAvailabilityStatus @default(AVAILABLE) @map("availability_status")
   specialization String?
   bio            String?
   maxCohorts     Int          @default(2) @map("max_cohorts")
@@ -409,10 +470,29 @@ model MentorProfile {
   
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   cohorts        Cohort[]
+  ratings        MentorRating[]
 
   @@index([userId])
   @@index([status])
   @@map("mentor_profiles")
+}
+
+model MentorRating {
+  id              String   @id @default(cuid())
+  mentorProfileId String   @map("mentor_profile_id")
+  studentProfileId String  @map("student_profile_id")
+  rating          Int
+  feedback        String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  mentorProfile   MentorProfile  @relation(fields: [mentorProfileId], references: [id], onDelete: Cascade)
+  studentProfile  StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([mentorProfileId, studentProfileId])
+  @@index([mentorProfileId])
+  @@index([studentProfileId])
+  @@map("mentor_ratings")
 }
 
 model StudentNote {

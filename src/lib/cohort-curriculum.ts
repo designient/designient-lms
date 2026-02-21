@@ -4,18 +4,13 @@ export async function getCohortCourseIds(cohortId: string): Promise<string[]> {
     const cohort = await prisma.cohort.findUnique({
         where: { id: cohortId },
         select: {
-            courses: { select: { courseId: true } },
             program: { select: { courseId: true } },
         },
     });
 
     if (!cohort) return [];
 
-    const ids = new Set<string>();
-    cohort.courses.forEach((c) => ids.add(c.courseId));
-    if (cohort.program.courseId) ids.add(cohort.program.courseId);
-
-    return Array.from(ids);
+    return cohort.program.courseId ? [cohort.program.courseId] : [];
 }
 
 export async function ensureStudentEnrollmentsForCohort(userId: string, cohortId: string): Promise<number> {

@@ -20,11 +20,6 @@ export const GET = withAuth(
                                 },
                             },
                             _count: { select: { students: true } },
-                            courses: {
-                                include: {
-                                    course: { select: { id: true, title: true, slug: true } },
-                                },
-                            },
                         },
                         orderBy: { createdAt: 'desc' },
                     },
@@ -32,19 +27,10 @@ export const GET = withAuth(
             });
 
             const cohorts = (mentor?.cohorts || []).map(c => {
-                // Use CohortCourse list, or fallback to Program's linked course when empty
-                const fromCohortCourses = c.courses.map(cc => ({
-                    id: cc.course.id,
-                    title: cc.course.title,
-                    slug: cc.course.slug,
-                }));
                 const programCourse = c.program?.course;
-                const courses =
-                    fromCohortCourses.length > 0
-                        ? fromCohortCourses
-                        : programCourse
-                            ? [{ id: programCourse.id, title: programCourse.title, slug: programCourse.slug }]
-                            : [];
+                const courses = programCourse
+                    ? [{ id: programCourse.id, title: programCourse.title, slug: programCourse.slug }]
+                    : [];
                 return {
                     id: c.id,
                     name: c.name,

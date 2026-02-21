@@ -3,10 +3,11 @@ import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { z } from 'zod';
+import { clearLoginAttempts, getSecurityPolicy, validatePasswordWithPolicy } from '@/lib/security-policy';
 
 const setupSchema = z.object({
     token: z.string().min(1),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string().min(1, 'Password is required').max(128),
 });
 
 export async function POST(req: NextRequest) {
@@ -19,6 +20,11 @@ export async function POST(req: NextRequest) {
         }
 
         const { token, password } = parsed.data;
+        const policy = await getSecurityPolicy();
+        const validationError = validatePasswordWithPolicy(password, policy);
+        if (validationError) {
+            return apiError(validationError, 422, 'VALIDATION_ERROR');
+        }
 
         // Find user with valid token
         const user = await prisma.user.findFirst({
@@ -53,6 +59,8 @@ export async function POST(req: NextRequest) {
                 data: { status: 'ACTIVE' },
             }),
         ]);
+
+        await clearLoginAttempts(user.email.toLowerCase());
 
         return apiSuccess({ message: 'Account set up successfully. You can now login.' });
 

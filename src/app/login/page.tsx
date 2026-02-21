@@ -41,7 +41,11 @@ export default function LoginPage() {
             const data = await me.json();
             const role = data?.data?.role;
             const roleName =
-                role === 'ADMIN' ? 'Admin' : role === 'INSTRUCTOR' ? 'Mentor' : 'Student';
+                role === 'ADMIN'
+                    ? 'Admin'
+                    : role === 'INSTRUCTOR'
+                        ? 'Mentor'
+                        : 'Student';
 
             toast({
                 title: 'Signed in',
@@ -385,15 +389,30 @@ export default function LoginPage() {
 
                     {/* Footer */}
                     <div className="px-6 py-5 flex items-center justify-center gap-6 border-t border-border/20">
-                        <button type="button" className="text-[11px] text-muted-foreground/45 hover:text-muted-foreground/70 transition-colors">
+                        <a
+                            href="https://designient.com/privacy-policy"
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="text-[11px] text-muted-foreground/45 hover:text-muted-foreground/70 transition-colors"
+                        >
                             Privacy Policy
-                        </button>
-                        <button type="button" className="text-[11px] text-muted-foreground/45 hover:text-muted-foreground/70 transition-colors">
+                        </a>
+                        <a
+                            href="https://designient.com/terms-and-conditions"
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="text-[11px] text-muted-foreground/45 hover:text-muted-foreground/70 transition-colors"
+                        >
                             Terms of Service
-                        </button>
-                        <button type="button" className="text-[11px] text-muted-foreground/45 hover:text-muted-foreground/70 transition-colors">
+                        </a>
+                        <a
+                            href="https://designient.com/contact-us"
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="text-[11px] text-muted-foreground/45 hover:text-muted-foreground/70 transition-colors"
+                        >
                             Support
-                        </button>
+                        </a>
                         <button type="button" className="text-[11px] text-muted-foreground/45 hover:text-muted-foreground/70 transition-colors flex items-center gap-1.5">
                             <div className="h-1 w-1 rounded-full bg-emerald-500" />
                             System Status
