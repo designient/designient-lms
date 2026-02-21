@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react';
@@ -25,7 +25,7 @@ function getOAuthErrorMessage(errorCode: string | null) {
     return 'Unable to sign in with Google right now. Please try credentials login.';
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -251,5 +251,28 @@ export default function LoginPage() {
                 </div>
             </div>
         </AuthShell>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense
+            fallback={
+                <AuthShell showStatus>
+                    <div className="w-full max-w-[460px] space-y-4">
+                        <AuthFormCard
+                            title={AUTH_SCREEN_COPY.login.title}
+                            subtitle={AUTH_SCREEN_COPY.login.subtitle}
+                            titleClassName="auth-form-title-login"
+                            className="auth-form-card-login"
+                        >
+                            <div className="auth-loading-copy">Loading sign-in options...</div>
+                        </AuthFormCard>
+                    </div>
+                </AuthShell>
+            }
+        >
+            <LoginPageContent />
+        </Suspense>
     );
 }
