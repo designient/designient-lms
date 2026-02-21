@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
+import { isStudentInCohort } from '@/lib/access-control';
 
 // POST /api/v1/quizzes/[id]/attempt - Start or submit quiz attempt
 export const POST = withAuth(
@@ -16,6 +17,10 @@ export const POST = withAuth(
             });
 
             if (!quiz) return apiError('Quiz not found', 404);
+            if (!quiz.isPublished) return apiError('Quiz is not published', 403, 'FORBIDDEN');
+
+            const inCohort = await isStudentInCohort(user.id, quiz.cohortId);
+            if (!inCohort) return apiError('Forbidden', 403, 'FORBIDDEN');
 
             // Check availability window
             const now = new Date();
@@ -30,6 +35,7 @@ export const POST = withAuth(
             if (body.answers && body.attemptId) {
                 const attempt = await prisma.quizAttempt.findUnique({ where: { id: body.attemptId } });
                 if (!attempt || attempt.studentId !== user.id) return apiError('Not authorized', 403);
+                if (attempt.quizId !== id) return apiError('Not authorized', 403);
                 if (attempt.submittedAt) return apiError('Already submitted', 400);
 
                 // Auto-grade

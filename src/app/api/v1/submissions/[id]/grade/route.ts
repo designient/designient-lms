@@ -4,6 +4,7 @@ import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
 import { gradeSchema, formatZodErrors } from '@/lib/validations';
 import { logAudit } from '@/lib/audit';
+import { canInstructorAccessCourse } from '@/lib/access-control';
 
 // POST /api/v1/submissions/[id]/grade
 export const POST = withAuth(
@@ -17,8 +18,11 @@ export const POST = withAuth(
             });
             if (!submission) return apiError('Submission not found', 404, 'NOT_FOUND');
 
-            if (user.role === 'INSTRUCTOR' && submission.assignment.course.createdBy !== user.id) {
-                return apiError('Forbidden', 403, 'FORBIDDEN');
+            if (user.role === 'INSTRUCTOR') {
+                const hasAccess = await canInstructorAccessCourse(user.id, submission.assignment.courseId);
+                if (!hasAccess) {
+                    return apiError('Forbidden', 403, 'FORBIDDEN');
+                }
             }
 
             const body = await req.json();

@@ -18,6 +18,7 @@ import {
     Video,
     FolderOpen,
     Library,
+    ListChecks,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useBrand } from '@/components/BrandProvider';
@@ -47,6 +48,7 @@ const navItems = [
     { icon: GraduationCap, label: 'My Students', href: '/m/students' },
     { icon: ClipboardCheck, label: 'Attendance', href: '/m/attendance' },
     { icon: FileText, label: 'Submissions', href: '/m/submissions' },
+    { icon: ListChecks, label: 'Assignments', href: '/m/assignments' },
     { icon: Video, label: 'Recordings', href: '/m/recordings' },
     { icon: FolderOpen, label: 'Materials', href: '/m/materials' },
     { icon: HelpCircle, label: 'Quizzes', href: '/m/quizzes' },

@@ -12,36 +12,27 @@ export const GET = withAuth(
             const page = Math.max(1, Number(searchParams.get('page') || '1'));
             const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || '12')));
 
-            // Get mentor's cohort IDs
-            const mentor = await prisma.mentorProfile.findUnique({
-                where: { userId: user.id },
-                include: { cohorts: { select: { id: true } } },
-            });
+            let cohortIds: string[] = [];
+            if (user.role === 'INSTRUCTOR') {
+                const mentor = await prisma.mentorProfile.findUnique({
+                    where: { userId: user.id },
+                    include: { cohorts: { select: { id: true } } },
+                });
+                cohortIds = mentor?.cohorts.map(c => c.id) || [];
+            }
 
-            const cohortIds = mentor?.cohorts.map(c => c.id) || [];
-
-            // Build filter — handle both module-linked and direct course-linked assignments
-            const where: Record<string, unknown> = {
-                OR: [
-                    {
-                        assignment: {
-                            module: {
-                                course: {
-                                    cohortCourses: { some: { cohortId: { in: cohortIds } } },
-                                },
-                            },
+            const where: Record<string, unknown> = user.role === 'ADMIN'
+                ? {}
+                : {
+                    assignment: {
+                        course: {
+                            OR: [
+                                { cohortCourses: { some: { cohortId: { in: cohortIds } } } },
+                                { program: { cohorts: { some: { id: { in: cohortIds } } } } },
+                            ],
                         },
                     },
-                    {
-                        assignment: {
-                            moduleId: null,
-                            course: {
-                                cohortCourses: { some: { cohortId: { in: cohortIds } } },
-                            },
-                        },
-                    },
-                ],
-            };
+                };
 
             if (status) {
                 where.status = status;
@@ -57,6 +48,9 @@ export const GET = withAuth(
                             select: {
                                 id: true,
                                 title: true,
+                                course: {
+                                    select: { id: true, title: true },
+                                },
                                 module: {
                                     select: {
                                         course: { select: { id: true, title: true } },
@@ -77,7 +71,7 @@ export const GET = withAuth(
                 studentName: s.student.name,
                 studentEmail: s.student.email,
                 assignmentTitle: s.assignment.title,
-                courseName: s.assignment.module?.course.title || 'Unknown',
+                courseName: s.assignment.course?.title || s.assignment.module?.course.title || 'Unknown',
                 status: s.status,
                 submittedAt: s.submittedAt,
                 grade: s.grade?.score != null ? String(s.grade.score) : null,

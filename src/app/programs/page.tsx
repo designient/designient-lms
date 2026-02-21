@@ -54,6 +54,8 @@ export default function ProgramsPage() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [drawerMode, setDrawerMode] = useState<DrawerMode>('view');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [availableCourses, setAvailableCourses] = useState<Array<{ id: string; title: string }>>([]);
+    const [isSyllabusUpdating, setIsSyllabusUpdating] = useState(false);
 
     const fetchPrograms = useCallback(async () => {
         try {
@@ -75,6 +77,12 @@ export default function ProgramsPage() {
     useEffect(() => {
         fetchPrograms();
     }, [fetchPrograms]);
+
+    useEffect(() => {
+        apiClient.get<{ courses: Array<{ id: string; title: string }> }>('/api/v1/courses?limit=200')
+            .then((res) => setAvailableCourses(res.courses.map((c) => ({ id: c.id, title: c.title }))))
+            .catch(() => setAvailableCourses([]));
+    }, []);
 
     const filteredPrograms = useMemo(() => {
         return programs.filter((program) => {
@@ -128,7 +136,7 @@ export default function ProgramsPage() {
                 description: `${selectedProgram.name} has been archived.`,
                 variant: 'info'
             });
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Error',
                 description: 'Failed to archive program.',
@@ -158,7 +166,7 @@ export default function ProgramsPage() {
                 description: `${selectedProgram.name} has been restored as a draft.`,
                 variant: 'success'
             });
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Error',
                 description: 'Failed to restore program.',
@@ -179,7 +187,7 @@ export default function ProgramsPage() {
                 variant: 'success'
             });
             handleCloseDrawer();
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Error',
                 description: 'Failed to delete program.',
@@ -211,7 +219,7 @@ export default function ProgramsPage() {
             });
             // Open the new program
             setSelectedProgram(newProgram);
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Error',
                 description: 'Failed to duplicate program.',
@@ -293,6 +301,12 @@ export default function ProgramsPage() {
         }
     };
 
+    const upsertProgramInState = (raw: Record<string, unknown>) => {
+        const updated = normalizeProgram(raw);
+        setPrograms((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
+        setSelectedProgram((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+    };
+
     return (
         <DashboardLayout
             title="Programs"
@@ -358,6 +372,50 @@ export default function ProgramsPage() {
                             onRestore={
                                 selectedProgram.status === 'Archived' ? handleRestore : undefined
                             }
+                            availableCourses={availableCourses}
+                            isSyllabusUpdating={isSyllabusUpdating}
+                            onCreateSyllabusCourse={async () => {
+                                if (!selectedProgram) return;
+                                try {
+                                    setIsSyllabusUpdating(true);
+                                    const raw = await apiClient.post<Record<string, unknown>>(`/api/v1/programs/${selectedProgram.id}/syllabus`, {});
+                                    upsertProgramInState(raw);
+                                    toast({
+                                        title: 'Syllabus Created',
+                                        description: 'A syllabus course was created and linked to this program.',
+                                        variant: 'success',
+                                    });
+                                } catch (error) {
+                                    toast({
+                                        title: 'Error',
+                                        description: error instanceof Error ? error.message : 'Failed to create syllabus.',
+                                        variant: 'error',
+                                    });
+                                } finally {
+                                    setIsSyllabusUpdating(false);
+                                }
+                            }}
+                            onLinkSyllabusCourse={async (courseId: string) => {
+                                if (!selectedProgram) return;
+                                try {
+                                    setIsSyllabusUpdating(true);
+                                    const raw = await apiClient.post<Record<string, unknown>>(`/api/v1/programs/${selectedProgram.id}/syllabus`, { courseId });
+                                    upsertProgramInState(raw);
+                                    toast({
+                                        title: 'Syllabus Linked',
+                                        description: 'Program syllabus course updated successfully.',
+                                        variant: 'success',
+                                    });
+                                } catch (error) {
+                                    toast({
+                                        title: 'Error',
+                                        description: error instanceof Error ? error.message : 'Failed to link syllabus.',
+                                        variant: 'error',
+                                    });
+                                } finally {
+                                    setIsSyllabusUpdating(false);
+                                }
+                            }}
                         />
                     )}
 

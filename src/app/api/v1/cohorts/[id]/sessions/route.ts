@@ -2,12 +2,18 @@ import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
+import { isMentorAssignedToCohort } from '@/lib/access-control';
 
 // GET /api/v1/cohorts/[id]/sessions - List sessions for a cohort
 export const GET = withAuth(
-    async (req: NextRequest, ctx) => {
+    async (req: NextRequest, ctx, user) => {
         try {
             const { id } = await ctx.params;
+
+            if (user.role === 'INSTRUCTOR') {
+                const assigned = await isMentorAssignedToCohort(user.id, id);
+                if (!assigned) return apiError('Not authorized for this cohort', 403, 'FORBIDDEN');
+            }
 
             const sessions = await prisma.classSession.findMany({
                 where: { cohortId: id },
@@ -54,14 +60,10 @@ export const POST = withAuth(
                 return apiError('title and scheduledAt are required', 400);
             }
 
-            // Verify mentor has access to this cohort
-            const mentor = await prisma.mentorProfile.findUnique({
-                where: { userId: user.id },
-                include: { cohorts: { select: { id: true } } },
-            });
-
-            const hasAccess = user.role === 'ADMIN' || mentor?.cohorts.some(c => c.id === id);
-            if (!hasAccess) return apiError('Not authorized for this cohort', 403);
+            if (user.role === 'INSTRUCTOR') {
+                const assigned = await isMentorAssignedToCohort(user.id, id);
+                if (!assigned) return apiError('Not authorized for this cohort', 403, 'FORBIDDEN');
+            }
 
             // Resolve courseId if possible (not required)
             let resolvedCourseId = courseId;

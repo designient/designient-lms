@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { apiSuccess, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
+import { ensureStudentEnrollmentsForCohort } from '@/lib/cohort-curriculum';
 
 // GET /api/v1/me/courses — student's enrolled courses with progress
 export const GET = withAuth(
@@ -11,6 +12,25 @@ export const GET = withAuth(
             const page = Math.max(1, Number(searchParams.get('page') || '1'));
             const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || '12')));
 
+            const studentProfile = await prisma.studentProfile.findUnique({
+                where: { userId: user.id },
+                select: {
+                    cohortId: true,
+                    cohort: {
+                        select: {
+                            id: true,
+                            name: true,
+                            program: { select: { id: true, name: true } },
+                        },
+                    },
+                },
+            });
+
+            if (studentProfile?.cohortId) {
+                // Self-heal enrollments for existing data where cohort syllabus wasn't enrolled.
+                await ensureStudentEnrollmentsForCohort(user.id, studentProfile.cohortId);
+            }
+
             const [enrollments, total] = await Promise.all([
                 prisma.enrollment.findMany({
                     where: { userId: user.id },
@@ -18,6 +38,7 @@ export const GET = withAuth(
                         course: {
                             include: {
                                 creator: { select: { name: true } },
+                                program: { select: { id: true, name: true } },
                                 modules: {
                                     include: {
                                         lessons: { select: { id: true } },
@@ -58,12 +79,25 @@ export const GET = withAuth(
                             description: enrollment.course.description,
                             level: enrollment.course.level,
                             creator: enrollment.course.creator,
+                            program: enrollment.course.program,
+                            modules: enrollment.course.modules.map((module) => ({
+                                id: module.id,
+                                title: module.title,
+                                lessonCount: module.lessons.length,
+                            })),
                         },
                         progress: totalLessons > 0
                             ? Math.round((completed / totalLessons) * 100)
                             : 0,
                         totalLessons,
                         completedLessons: completed,
+                        cohort: studentProfile?.cohort
+                            ? {
+                                id: studentProfile.cohort.id,
+                                name: studentProfile.cohort.name,
+                                program: studentProfile.cohort.program,
+                            }
+                            : null,
                     };
                 })
             );

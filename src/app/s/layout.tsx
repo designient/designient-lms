@@ -18,7 +18,11 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
             router.replace('/login');
             return;
         }
-        if (session.user.role === 'ADMIN' || session.user.role === 'INSTRUCTOR') {
+        if (session.user.role === 'INSTRUCTOR') {
+            router.replace('/m/dashboard');
+            return;
+        }
+        if (session.user.role === 'ADMIN') {
             router.replace('/dashboard');
         }
     }, [session, status, router]);

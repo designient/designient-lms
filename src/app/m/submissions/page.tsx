@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Loader2, FileText, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { Badge } from '@/components/ui/Badge';
@@ -31,8 +31,7 @@ export default function MentorSubmissionsPage() {
     const [gradeInput, setGradeInput] = useState('');
     const [feedbackInput, setFeedbackInput] = useState('');
 
-    const fetchSubmissions = () => {
-        setIsLoading(true);
+    const fetchSubmissions = useCallback(() => {
         const params = new URLSearchParams({
             page: String(page),
             limit: '12',
@@ -45,11 +44,11 @@ export default function MentorSubmissionsPage() {
             })
             .catch(console.error)
             .finally(() => setIsLoading(false));
-    };
+    }, [page, statusFilter]);
 
     useEffect(() => {
         fetchSubmissions();
-    }, [page, statusFilter]);
+    }, [fetchSubmissions]);
 
     const handleGrade = async (submissionId: string) => {
         try {
@@ -66,6 +65,7 @@ export default function MentorSubmissionsPage() {
             setGradingId(null);
             setGradeInput('');
             setFeedbackInput('');
+            setIsLoading(true);
             fetchSubmissions();
         } catch {
             toast({ title: 'Error', description: 'Failed to grade submission.', variant: 'error' });
@@ -100,7 +100,7 @@ export default function MentorSubmissionsPage() {
                 {['', 'SUBMITTED', 'GRADED', 'RESUBMITTED'].map(status => (
                     <button
                         key={status}
-                        onClick={() => { setStatusFilter(status); setPage(1); }}
+                        onClick={() => { setIsLoading(true); setStatusFilter(status); setPage(1); }}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === status ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'}`}
                     >
                         {statusLabel[status]}
@@ -154,8 +154,10 @@ export default function MentorSubmissionsPage() {
                             {gradingId === sub.id ? (
                                 <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border/50">
                                     <input
-                                        type="text"
-                                        placeholder="Grade (e.g., A, B+, 85/100)"
+                                        type="number"
+                                        min={0}
+                                        step={1}
+                                        placeholder="Score (e.g., 85)"
                                         value={gradeInput}
                                         onChange={(e) => setGradeInput(e.target.value)}
                                         className="w-full px-3 py-2 rounded-md border border-border/60 bg-background text-sm"
@@ -173,7 +175,7 @@ export default function MentorSubmissionsPage() {
                                     </div>
                                 </div>
                             ) : (
-                                sub.status === 'PENDING' && (
+                                (sub.status === 'SUBMITTED' || sub.status === 'RESUBMITTED') && (
                                     <Button size="sm" variant="outline" onClick={() => setGradingId(sub.id)}>
                                         Grade
                                     </Button>
@@ -190,7 +192,7 @@ export default function MentorSubmissionsPage() {
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                         <button
                             key={p}
-                            onClick={() => setPage(p)}
+                            onClick={() => { setIsLoading(true); setPage(p); }}
                             className={`h-8 w-8 rounded-md text-sm transition-colors ${p === page ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'}`}
                         >
                             {p}

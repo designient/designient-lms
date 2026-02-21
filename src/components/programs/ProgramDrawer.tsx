@@ -27,6 +27,10 @@ interface ProgramDrawerProps {
     onDelete: () => void;
     onDuplicate: () => void;
     onRestore?: () => void;
+    availableCourses?: Array<{ id: string; title: string }>;
+    onLinkSyllabusCourse?: (courseId: string) => Promise<void>;
+    onCreateSyllabusCourse?: () => Promise<void>;
+    isSyllabusUpdating?: boolean;
 }
 
 export function ProgramDrawer({
@@ -35,11 +39,16 @@ export function ProgramDrawer({
     onArchive,
     onDelete,
     onDuplicate,
-    onRestore
+    onRestore,
+    availableCourses = [],
+    onLinkSyllabusCourse,
+    onCreateSyllabusCourse,
+    isSyllabusUpdating = false,
 }: ProgramDrawerProps) {
     const router = useRouter();
     const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [selectedCourseId, setSelectedCourseId] = useState('');
 
     const getStatusVariant = (status: Program['status']) => {
         switch (status) {
@@ -188,6 +197,75 @@ export function ProgramDrawer({
                                 <Hammer className="h-4 w-4" />
                                 Build Course Content
                             </Button>
+                            {onLinkSyllabusCourse && (
+                                <div className="pt-1 border-t border-border/50">
+                                    <p className="text-xs text-muted-foreground mb-2">Switch syllabus course</p>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={selectedCourseId}
+                                            onChange={(e) => setSelectedCourseId(e.target.value)}
+                                            className="flex-1 rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
+                                        >
+                                            <option value="">Select existing course</option>
+                                            {availableCourses.map((course) => (
+                                                <option key={course.id} value={course.id}>{course.title}</option>
+                                            ))}
+                                        </select>
+                                        <Button
+                                            onClick={() => selectedCourseId && onLinkSyllabusCourse(selectedCourseId)}
+                                            disabled={!selectedCourseId || isSyllabusUpdating}
+                                            variant="outline"
+                                        >
+                                            {isSyllabusUpdating ? 'Saving...' : 'Link'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </DrawerSection>
+                    <DrawerDivider />
+                </>
+            )}
+
+            {!program.course && (
+                <>
+                    <DrawerSection title="Course Content">
+                        <div className="space-y-3">
+                            <p className="text-sm text-muted-foreground">
+                                No syllabus is linked to this program yet.
+                            </p>
+                            {onLinkSyllabusCourse && (
+                                <div className="space-y-2">
+                                    <select
+                                        value={selectedCourseId}
+                                        onChange={(e) => setSelectedCourseId(e.target.value)}
+                                        className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
+                                    >
+                                        <option value="">Select existing course</option>
+                                        {availableCourses.map((course) => (
+                                            <option key={course.id} value={course.id}>{course.title}</option>
+                                        ))}
+                                    </select>
+                                    <Button
+                                        onClick={() => selectedCourseId && onLinkSyllabusCourse(selectedCourseId)}
+                                        disabled={!selectedCourseId || isSyllabusUpdating}
+                                        className="w-full"
+                                        variant="outline"
+                                    >
+                                        {isSyllabusUpdating ? 'Linking...' : 'Link Existing Course'}
+                                    </Button>
+                                </div>
+                            )}
+                            {onCreateSyllabusCourse && (
+                                <Button
+                                    onClick={() => onCreateSyllabusCourse()}
+                                    disabled={isSyllabusUpdating}
+                                    className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                                >
+                                    <Hammer className="h-4 w-4" />
+                                    {isSyllabusUpdating ? 'Creating...' : 'Create Syllabus Course'}
+                                </Button>
+                            )}
                         </div>
                     </DrawerSection>
                     <DrawerDivider />

@@ -34,16 +34,25 @@ export async function POST(req: NextRequest) {
 
         const passwordHash = await bcrypt.hash(password, 12);
 
-        await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                passwordHash,
-                emailVerified: true,
-                isActive: true,
-                resetToken: null,
-                resetTokenExp: null,
-            },
-        });
+        await prisma.$transaction([
+            prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    passwordHash,
+                    emailVerified: true,
+                    isActive: true,
+                    resetToken: null,
+                    resetTokenExp: null,
+                },
+            }),
+            prisma.studentProfile.updateMany({
+                where: {
+                    userId: user.id,
+                    status: 'INVITED',
+                },
+                data: { status: 'ACTIVE' },
+            }),
+        ]);
 
         return apiSuccess({ message: 'Account set up successfully. You can now login.' });
 

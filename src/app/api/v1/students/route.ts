@@ -4,6 +4,9 @@ import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
 import { studentProfileSchema, formatZodErrors } from '@/lib/validations';
 import { logAudit } from '@/lib/audit';
+import { ensureStudentEnrollmentsForCohort } from '@/lib/cohort-curriculum';
+import crypto from 'crypto';
+import { sendInvitationEmail } from '@/lib/email';
 
 // GET /api/v1/students - List all students
 export const GET = withAuth(
@@ -93,9 +96,6 @@ export const POST = withAuth(
             if (!targetUserId && email) {
                 let targetUser = await prisma.user.findUnique({ where: { email } });
                 if (!targetUser) {
-                    const crypto = require('crypto');
-                    const { sendInvitationEmail } = require('@/lib/email');
-
                     const token = crypto.randomBytes(32).toString('hex');
                     const tokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -113,7 +113,7 @@ export const POST = withAuth(
                     });
 
                     // Send invitation email in background
-                    sendInvitationEmail(email, token, 'student', targetUser.name).catch((err: any) =>
+                    sendInvitationEmail(email, token, 'student', targetUser.name).catch((err: unknown) =>
                         console.error('Failed to send invitation email:', err)
                     );
                 }
@@ -142,31 +142,9 @@ export const POST = withAuth(
                 include: { user: true, cohort: true }
             });
 
-            // Auto-enroll in cohort courses if assigned to a cohort
+            // Auto-enroll in the cohort syllabus (cohort courses + program-linked course).
             if (parsed.data.cohortId) {
-                const cohortCourses = await prisma.cohortCourse.findMany({
-                    where: { cohortId: parsed.data.cohortId },
-                    select: { courseId: true },
-                });
-
-                if (cohortCourses.length > 0) {
-                    const existingEnrollments = await prisma.enrollment.findMany({
-                        where: {
-                            userId: targetUserId,
-                            courseId: { in: cohortCourses.map(cc => cc.courseId) },
-                        },
-                        select: { courseId: true },
-                    });
-                    const enrolledCourseIds = new Set(existingEnrollments.map(e => e.courseId));
-
-                    const newEnrollments = cohortCourses
-                        .filter(cc => !enrolledCourseIds.has(cc.courseId))
-                        .map(cc => ({ userId: targetUserId, courseId: cc.courseId }));
-
-                    if (newEnrollments.length > 0) {
-                        await prisma.enrollment.createMany({ data: newEnrollments });
-                    }
-                }
+                await ensureStudentEnrollmentsForCohort(targetUserId, parsed.data.cohortId);
             }
 
             await logAudit(user.id, 'STUDENT_INVITED', 'StudentProfile', student.id);

@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
 import { assignmentSchema, formatZodErrors } from '@/lib/validations';
+import { canInstructorAccessCourse, isStudentEnrolledInCourse } from '@/lib/access-control';
 
 // GET /api/v1/courses/[id]/assignments
 export const GET = withAuth(
@@ -12,6 +13,22 @@ export const GET = withAuth(
             const { searchParams } = req.nextUrl;
             const page = Math.max(1, Number(searchParams.get('page') || '1'));
             const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || '20')));
+
+            const course = await prisma.course.findUnique({
+                where: { id: courseId },
+                select: { id: true },
+            });
+            if (!course) return apiError('Course not found', 404, 'NOT_FOUND');
+
+            if (user.role === 'STUDENT') {
+                const enrolled = await isStudentEnrolledInCourse(user.id, courseId);
+                if (!enrolled) return apiError('Not enrolled in this course', 403, 'NOT_ENROLLED');
+            }
+
+            if (user.role === 'INSTRUCTOR') {
+                const canAccess = await canInstructorAccessCourse(user.id, courseId);
+                if (!canAccess) return apiError('Forbidden', 403, 'FORBIDDEN');
+            }
 
             // Students only see published assignments
             const where: Record<string, unknown> = { courseId };
@@ -52,8 +69,9 @@ export const POST = withAuth(
             const course = await prisma.course.findUnique({ where: { id: courseId } });
             if (!course) return apiError('Course not found', 404, 'NOT_FOUND');
 
-            if (user.role === 'INSTRUCTOR' && course.createdBy !== user.id) {
-                return apiError('Forbidden', 403, 'FORBIDDEN');
+            if (user.role === 'INSTRUCTOR') {
+                const canAccess = await canInstructorAccessCourse(user.id, courseId);
+                if (!canAccess) return apiError('Forbidden', 403, 'FORBIDDEN');
             }
 
             const body = await req.json();

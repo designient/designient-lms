@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
+import { apiSuccess, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
 
 // GET /api/v1/me/quizzes — fetch all quizzes for the student's cohort
@@ -50,12 +50,10 @@ export const GET = withAuth(async (req: NextRequest, _ctx, user) => {
             },
         });
 
-        // Transform to include 'latestAttempt' field for easier frontend consumption
+        // Include both attempts and latestAttempt to keep old/new UI contracts working.
         const processedQuizzes = quizzes.map(quiz => ({
             ...quiz,
             latestAttempt: quiz.attempts[0] || null,
-            questions: undefined, // Don't send questions list in summary
-            attempts: undefined,
         }));
 
         return apiSuccess({ quizzes: processedQuizzes });

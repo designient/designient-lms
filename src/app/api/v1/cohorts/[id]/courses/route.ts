@@ -12,7 +12,27 @@ export async function GET(
     try {
         const { id: cohortId } = await params;
 
-        const cohort = await prisma.cohort.findUnique({ where: { id: cohortId } });
+        const cohort = await prisma.cohort.findUnique({
+            where: { id: cohortId },
+            select: {
+                id: true,
+                program: {
+                    select: {
+                        course: {
+                            select: {
+                                id: true,
+                                title: true,
+                                slug: true,
+                                description: true,
+                                level: true,
+                                isPublished: true,
+                                _count: { select: { modules: true, enrollments: true } },
+                            },
+                        },
+                    },
+                },
+            },
+        });
         if (!cohort) {
             return apiError('Cohort not found', 404, 'NOT_FOUND');
         }
@@ -35,11 +55,35 @@ export async function GET(
             orderBy: { addedAt: 'desc' },
         });
 
-        const courses = cohortCourses.map(cc => ({
+        type CohortCourseResponse = {
+            id: string;
+            title: string;
+            slug: string;
+            description: string | null;
+            level: string;
+            isPublished: boolean;
+            _count: { modules: number; enrollments: number };
+            addedAt: Date | null;
+            cohortCourseId: string | null;
+            source: 'COHORT' | 'PROGRAM';
+        };
+
+        const directCourses: CohortCourseResponse[] = cohortCourses.map(cc => ({
             ...cc.course,
             addedAt: cc.addedAt,
             cohortCourseId: cc.id,
+            source: 'COHORT' as const,
         }));
+
+        let courses: CohortCourseResponse[] = directCourses;
+        if (courses.length === 0 && cohort.program?.course) {
+            courses = [{
+                ...cohort.program.course,
+                addedAt: null,
+                cohortCourseId: null,
+                source: 'PROGRAM' as const,
+            }];
+        }
 
         return apiSuccess({ courses });
     } catch (error) {

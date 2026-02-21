@@ -50,6 +50,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 );
                 if (!isValid) return null;
 
+                if (user.role === 'STUDENT') {
+                    await prisma.studentProfile.updateMany({
+                        where: { userId: user.id, status: 'INVITED' },
+                        data: { status: 'ACTIVE' },
+                    });
+                }
+
                 return {
                     id: user.id,
                     name: user.name,

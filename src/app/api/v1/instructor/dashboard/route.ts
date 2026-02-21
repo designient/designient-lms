@@ -7,17 +7,28 @@ import { withAuth } from '@/lib/middleware/rbac';
 export const GET = withAuth(
     async (req: NextRequest, _ctx, user) => {
         try {
-            // Get mentor profile
-            const mentor = await prisma.mentorProfile.findUnique({
-                where: { userId: user.id },
-                include: {
-                    cohorts: {
-                        select: { id: true, name: true, status: true, _count: { select: { students: true } } },
-                    },
-                },
-            });
+            let cohortIds: string[] = [];
+            let mentorCohorts: Array<{ id: string; name: string; status: string; _count: { students: number } }> = [];
 
-            const cohortIds = mentor?.cohorts.map(c => c.id) || [];
+            if (user.role === 'ADMIN') {
+                const cohorts = await prisma.cohort.findMany({
+                    select: { id: true, name: true, status: true, _count: { select: { students: true } } },
+                    orderBy: { createdAt: 'desc' },
+                });
+                cohortIds = cohorts.map(c => c.id);
+                mentorCohorts = cohorts;
+            } else {
+                const mentor = await prisma.mentorProfile.findUnique({
+                    where: { userId: user.id },
+                    include: {
+                        cohorts: {
+                            select: { id: true, name: true, status: true, _count: { select: { students: true } } },
+                        },
+                    },
+                });
+                cohortIds = mentor?.cohorts.map(c => c.id) || [];
+                mentorCohorts = mentor?.cohorts || [];
+            }
 
             // Get counts
             const [totalStudents, pendingSubmissions, totalCourses] = await Promise.all([
@@ -26,12 +37,13 @@ export const GET = withAuth(
                 }),
                 prisma.submission.count({
                     where: {
-                        status: 'SUBMITTED',
+                        status: { in: ['SUBMITTED', 'RESUBMITTED'] },
                         assignment: {
-                            module: {
-                                course: {
-                                    cohortCourses: { some: { cohortId: { in: cohortIds } } },
-                                },
+                            course: {
+                                OR: [
+                                    { cohortCourses: { some: { cohortId: { in: cohortIds } } } },
+                                    { program: { cohorts: { some: { id: { in: cohortIds } } } } },
+                                ],
                             },
                         },
                     },
@@ -43,11 +55,11 @@ export const GET = withAuth(
 
             return apiSuccess({
                 totalCohorts: cohortIds.length,
-                activeCohorts: mentor?.cohorts.filter(c => c.status === 'ACTIVE').length || 0,
+                activeCohorts: mentorCohorts.filter(c => c.status === 'ACTIVE').length || 0,
                 totalStudents,
                 pendingSubmissions,
                 totalCourses,
-                recentCohorts: mentor?.cohorts.slice(0, 5) || [],
+                recentCohorts: mentorCohorts.slice(0, 5),
             });
         } catch (error) {
             return handleApiError(error);

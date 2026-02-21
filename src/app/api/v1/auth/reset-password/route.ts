@@ -32,14 +32,23 @@ export async function POST(req: NextRequest) {
 
         const passwordHash = await bcrypt.hash(password, 12);
 
-        await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                passwordHash,
-                resetToken: null,
-                resetTokenExp: null,
-            },
-        });
+        await prisma.$transaction([
+            prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    passwordHash,
+                    resetToken: null,
+                    resetTokenExp: null,
+                },
+            }),
+            prisma.studentProfile.updateMany({
+                where: {
+                    userId: user.id,
+                    status: 'INVITED',
+                },
+                data: { status: 'ACTIVE' },
+            }),
+        ]);
 
         await logAudit(user.id, 'PASSWORD_RESET', 'User', user.id);
 

@@ -4,6 +4,7 @@ import { apiSuccess, apiError, handleApiError } from '@/lib/errors';
 import { withAuth } from '@/lib/middleware/rbac';
 import { courseSchema, formatZodErrors } from '@/lib/validations';
 import { logAudit } from '@/lib/audit';
+import { auth } from '@/lib/auth';
 
 // GET /api/v1/courses — list courses
 export async function GET(req: NextRequest) {
@@ -14,7 +15,11 @@ export async function GET(req: NextRequest) {
         const search = searchParams.get('search') || '';
         const level = searchParams.get('level');
 
-        const where: Record<string, unknown> = { isPublished: true };
+        const session = await auth();
+        const role = session?.user?.role;
+        const canViewUnpublished = role === 'ADMIN' || role === 'INSTRUCTOR';
+
+        const where: Record<string, unknown> = canViewUnpublished ? {} : { isPublished: true };
         if (search) {
             where.OR = [
                 { title: { contains: search, mode: 'insensitive' } },
