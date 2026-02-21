@@ -8,9 +8,12 @@ import { AuthFooterLinks } from '@/components/auth/AuthFooterLinks';
 interface AuthShellProps {
     children: ReactNode;
     showStatus?: boolean;
+    contentClassName?: string;
 }
 
-export function AuthShell({ children, showStatus = false }: AuthShellProps) {
+export function AuthShell({ children, showStatus = false, contentClassName }: AuthShellProps) {
+    const contentWrapClassName = ['auth-content-wrap', contentClassName || ''].join(' ').trim();
+
     return (
         <div className="auth-shell">
             <AuthBrandPanel />
@@ -28,7 +31,7 @@ export function AuthShell({ children, showStatus = false }: AuthShellProps) {
                 </div>
 
                 <div className="auth-main-inner">
-                    <div className="auth-content-wrap">
+                    <div className={contentWrapClassName}>
                         <AuthBrandPanel compact />
                         {children}
                     </div>

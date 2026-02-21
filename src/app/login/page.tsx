@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { AuthShell } from '@/components/auth/AuthShell';
-import { AuthFormCard } from '@/components/auth/AuthFormCard';
 import { AuthField } from '@/components/auth/AuthField';
 import { AUTH_SCREEN_COPY } from '@/content/auth';
 
@@ -143,14 +142,14 @@ function LoginPageContent() {
     const shouldShowGoogleConfigHint = GOOGLE_SSO_ENABLED && providersLoaded && !googleProviderAvailable && IS_DEV;
 
     return (
-        <AuthShell showStatus>
-            <div className={`w-full max-w-[460px] space-y-4 transition-opacity ${mounted ? 'opacity-100' : 'opacity-0'}`}>
-                <AuthFormCard
-                    title={AUTH_SCREEN_COPY.login.title}
-                    subtitle={AUTH_SCREEN_COPY.login.subtitle}
-                    titleClassName="auth-form-title-login"
-                    className="auth-form-card-login"
-                >
+        <AuthShell showStatus contentClassName="auth-content-wrap-login">
+            <div className={`auth-login-layout transition-opacity ${mounted ? 'opacity-100' : 'opacity-0'}`}>
+                <section className="auth-login-panel auth-fade-in" style={{ animationDelay: '0.12s' }}>
+                    <header className="auth-login-header">
+                        <h1 className="auth-form-title auth-form-title-login">{AUTH_SCREEN_COPY.login.title}</h1>
+                        <p className="auth-form-subtitle auth-login-subtitle">{AUTH_SCREEN_COPY.login.subtitle}</p>
+                    </header>
+
                     {error ? (
                         <div className="auth-error-banner" role="alert">
                             <AlertCircle className="h-4 w-4" aria-hidden="true" />
@@ -168,9 +167,12 @@ function LoginPageContent() {
                                     </>
                                 ) : (
                                     <>
-                                        <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-                                            <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9-3.3 0-6-2.8-6-6.2s2.7-6.2 6-6.2c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 2.9 14.7 2 12 2 6.9 2 2.8 6.2 2.8 11.3S6.9 20.7 12 20.7c6.9 0 9.1-4.9 9.1-7.4 0-.5 0-.8-.1-1.1H12z" />
-                                        </svg>
+                                        <img
+                                            src="/uploads/Google__G__logo.svg"
+                                            alt=""
+                                            aria-hidden="true"
+                                            className="h-4 w-4 object-contain"
+                                        />
                                         Continue with Google
                                     </>
                                 )}
@@ -187,7 +189,7 @@ function LoginPageContent() {
                         </div>
                     ) : null}
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4 auth-login-form">
                         <AuthField
                             id="email"
                             label="Email"
@@ -242,12 +244,36 @@ function LoginPageContent() {
                             )}
                         </button>
                     </form>
-                </AuthFormCard>
+                </section>
 
-                <p className="auth-support-note">Students, mentors, and administrators sign in here.</p>
-                <div className="auth-security-row">
-                    <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Encrypted session and role-scoped access controls</span>
+                <div className="auth-login-meta">
+                    <p className="auth-support-note">Students, mentors, and administrators sign in here.</p>
+                    <div className="auth-security-row">
+                        <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>Encrypted session and role-scoped access controls</span>
+                    </div>
+                </div>
+
+                <div className="auth-trusted-partners" aria-label="Trusted certified partner">
+                    <p className="auth-trusted-title">Trusted certified partner</p>
+                    <div className="auth-trusted-logos">
+                        <a
+                            className="auth-partner-badge"
+                            title="Adobe"
+                            aria-label="Adobe"
+                            href="https://www.adobe.com/in/"
+                            target="_blank"
+                            rel="noreferrer noopener"
+                        >
+                            <img
+                                src="/uploads/adobe-logo.svg"
+                                alt="Adobe logo"
+                                className="auth-partner-logo auth-partner-logo-img"
+                                loading="lazy"
+                                decoding="async"
+                            />
+                        </a>
+                    </div>
                 </div>
             </div>
         </AuthShell>
@@ -258,16 +284,15 @@ export default function LoginPage() {
     return (
         <Suspense
             fallback={
-                <AuthShell showStatus>
-                    <div className="w-full max-w-[460px] space-y-4">
-                        <AuthFormCard
-                            title={AUTH_SCREEN_COPY.login.title}
-                            subtitle={AUTH_SCREEN_COPY.login.subtitle}
-                            titleClassName="auth-form-title-login"
-                            className="auth-form-card-login"
-                        >
+                <AuthShell showStatus contentClassName="auth-content-wrap-login">
+                    <div className="auth-login-layout">
+                        <section className="auth-login-panel auth-fade-in" style={{ animationDelay: '0.12s' }}>
+                            <header className="auth-login-header">
+                                <h1 className="auth-form-title auth-form-title-login">{AUTH_SCREEN_COPY.login.title}</h1>
+                                <p className="auth-form-subtitle auth-login-subtitle">{AUTH_SCREEN_COPY.login.subtitle}</p>
+                            </header>
                             <div className="auth-loading-copy">Loading sign-in options...</div>
-                        </AuthFormCard>
+                        </section>
                     </div>
                 </AuthShell>
             }
