@@ -10,6 +10,15 @@ import { sendVerificationEmail } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
     try {
+        const publicSignupEnabled = process.env.ENABLE_PUBLIC_SIGNUP === 'true';
+        if (!publicSignupEnabled) {
+            return apiError(
+                'Public signup is disabled. Please contact your admin for an invitation.',
+                403,
+                'INVITE_REQUIRED'
+            );
+        }
+
         const rateLimited = rateLimit(req);
         if (rateLimited) return rateLimited;
 

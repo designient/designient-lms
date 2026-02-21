@@ -1,10 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useState } from 'react';
+import { Loader2, Lock, Mail, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import Toast, { showToast } from '@/components/Toast';
+import { useToast } from '@/components/ui/Toast';
+import { AuthShell } from '@/components/auth/AuthShell';
+import { AuthFormCard } from '@/components/auth/AuthFormCard';
+import { AuthField } from '@/components/auth/AuthField';
+import { AUTH_SCREEN_COPY } from '@/content/auth';
 
 export default function SignupPage() {
     const [name, setName] = useState('');
@@ -12,86 +17,116 @@ export default function SignupPage() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+
     const router = useRouter();
+    const { toast } = useToast();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setErrors({});
+
         try {
             const res = await api.post('/auth/signup', { name, email, password });
-            if (res.success) {
-                showToast('success', 'Account created! Please sign in.');
-                setTimeout(() => router.push('/login'), 1500);
-            } else {
-                if (res.error?.details && Array.isArray(res.error.details)) {
-                    const fieldErrors: Record<string, string> = {};
-                    (res.error.details as { field: string; message: string }[]).forEach((d) => {
-                        fieldErrors[d.field] = d.message;
+            if (!res.success) {
+                const details = res.error?.details as { field: string; message: string }[] | undefined;
+                if (Array.isArray(details)) {
+                    const nextErrors: Record<string, string> = {};
+                    details.forEach((detail) => {
+                        nextErrors[detail.field] = detail.message;
                     });
-                    setErrors(fieldErrors);
+                    setErrors(nextErrors);
                 } else {
-                    showToast('error', res.error?.message || 'Signup failed');
+                    throw new Error(res.error?.message || 'Signup failed');
                 }
+            } else {
+                toast({
+                    title: 'Account created',
+                    description: 'Your profile is ready. Continue to sign in.',
+                    variant: 'success',
+                });
+                setTimeout(() => router.push('/login'), 1200);
             }
-        } catch {
-            showToast('error', 'Something went wrong');
+        } catch (error) {
+            toast({
+                title: 'Signup failed',
+                description: error instanceof Error ? error.message : 'Something went wrong',
+                variant: 'error',
+            });
         }
+
         setLoading(false);
     };
 
     return (
-        <div className="auth-container">
-            <Toast />
-            <div className="auth-card">
-                <h1 className="auth-title">Create account</h1>
-                <p className="auth-subtitle">Start learning today on LearnHub</p>
-                <form onSubmit={handleSubmit}>
-                    <div className="form-group">
-                        <label className="form-label">Full Name</label>
-                        <input
+        <AuthShell>
+            <div className="w-full max-w-[460px] space-y-4">
+                <AuthFormCard title={AUTH_SCREEN_COPY.signup.title} subtitle={AUTH_SCREEN_COPY.signup.subtitle}>
+                    <div className="auth-notice-banner" role="note">
+                        <p>Invite-first access is recommended. If your organization invited you, use the setup link from email.</p>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <AuthField
+                            id="name"
+                            label="Full Name"
                             type="text"
-                            className="form-input"
-                            placeholder="John Doe"
+                            icon={User}
+                            placeholder="Your full name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
+                            autoComplete="name"
                             required
+                            hint={errors.name}
                         />
-                        {errors.name && <span className="form-error">{errors.name}</span>}
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">Email</label>
-                        <input
+
+                        <AuthField
+                            id="email"
+                            label="Email"
                             type="email"
-                            className="form-input"
-                            placeholder="you@example.com"
+                            icon={Mail}
+                            placeholder="name@company.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            autoComplete="email"
                             required
+                            hint={errors.email}
                         />
-                        {errors.email && <span className="form-error">{errors.email}</span>}
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">Password</label>
-                        <input
+
+                        <AuthField
+                            id="password"
+                            label="Password"
                             type="password"
-                            className="form-input"
-                            placeholder="Min 8 chars, 1 uppercase, 1 number"
+                            icon={Lock}
+                            placeholder="Minimum 8 characters"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            autoComplete="new-password"
                             required
                             minLength={8}
+                            hint={errors.password}
                         />
-                        {errors.password && <span className="form-error">{errors.password}</span>}
-                    </div>
-                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-                        {loading ? 'Creating account...' : 'Create Account'}
-                    </button>
-                </form>
-                <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.9375rem', marginTop: '1.5rem' }}>
-                    Already have an account? <Link href="/login">Sign in</Link>
-                </p>
+
+                        <button type="submit" disabled={loading} className="auth-submit-button">
+                            {loading ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Creating account...
+                                </>
+                            ) : (
+                                'Create Account'
+                            )}
+                        </button>
+                    </form>
+                </AuthFormCard>
+
+                <div className="auth-secondary-actions">
+                    <span className="auth-secondary-copy">Already have access?</span>
+                    <Link href="/login" className="auth-inline-link">
+                        Sign In
+                    </Link>
+                </div>
             </div>
-        </div>
+        </AuthShell>
     );
 }

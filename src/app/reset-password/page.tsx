@@ -1,16 +1,23 @@
 'use client';
 
-import { useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Loader2, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
-import Toast, { showToast } from '@/components/Toast';
+import { useToast } from '@/components/ui/Toast';
+import { AuthShell } from '@/components/auth/AuthShell';
+import { AuthFormCard } from '@/components/auth/AuthFormCard';
+import { AuthField } from '@/components/auth/AuthField';
+import { AUTH_SCREEN_COPY } from '@/content/auth';
 
 function ResetPasswordForm() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const searchParams = useSearchParams();
     const router = useRouter();
+    const { toast } = useToast();
+
     const token = searchParams.get('token') || '';
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -18,30 +25,60 @@ function ResetPasswordForm() {
         setLoading(true);
         try {
             const res = await api.post('/auth/reset-password', { token, password });
-            if (res.success) {
-                showToast('success', 'Password reset! Redirecting to login...');
-                setTimeout(() => router.push('/login'), 2000);
-            } else {
-                showToast('error', res.error?.message || 'Reset failed');
+            if (!res.success) {
+                throw new Error(res.error?.message || 'Reset failed');
             }
-        } catch {
-            showToast('error', 'Something went wrong');
+            toast({
+                title: 'Password reset',
+                description: 'Your password has been updated. Redirecting to sign in...',
+                variant: 'success',
+            });
+            setTimeout(() => router.push('/login'), 1400);
+        } catch (error) {
+            toast({
+                title: 'Reset failed',
+                description: error instanceof Error ? error.message : 'Something went wrong',
+                variant: 'error',
+            });
         }
         setLoading(false);
     };
 
     if (!token) {
-        return <p style={{ color: 'var(--color-danger)' }}>Invalid or missing reset token. <Link href="/forgot-password">Request a new one</Link></p>;
+        return (
+            <div className="auth-error-banner" role="alert">
+                <span>Invalid or missing reset token.</span>
+                <Link href="/forgot-password" className="auth-inline-link ml-2">
+                    Request a new one
+                </Link>
+            </div>
+        );
     }
 
     return (
-        <form onSubmit={handleSubmit}>
-            <div className="form-group">
-                <label className="form-label">New Password</label>
-                <input type="password" className="form-input" placeholder="Min 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
-            </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-                {loading ? 'Resetting...' : 'Reset Password'}
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <AuthField
+                id="password"
+                label="New Password"
+                type="password"
+                icon={Lock}
+                placeholder="Choose a strong password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+                minLength={8}
+            />
+
+            <button type="submit" className="auth-submit-button" disabled={loading}>
+                {loading ? (
+                    <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Resetting...
+                    </>
+                ) : (
+                    'Reset Password'
+                )}
             </button>
         </form>
     );
@@ -49,15 +86,23 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
     return (
-        <div className="auth-container">
-            <Toast />
-            <div className="auth-card">
-                <h1 className="auth-title">Reset password</h1>
-                <p className="auth-subtitle">Enter your new password below</p>
-                <Suspense fallback={<div>Loading...</div>}>
-                    <ResetPasswordForm />
-                </Suspense>
+        <AuthShell>
+            <div className="w-full max-w-[460px] space-y-4">
+                <AuthFormCard
+                    title={AUTH_SCREEN_COPY.resetPassword.title}
+                    subtitle={AUTH_SCREEN_COPY.resetPassword.subtitle}
+                >
+                    <Suspense fallback={<div className="auth-loading-copy">Loading reset form...</div>}>
+                        <ResetPasswordForm />
+                    </Suspense>
+                </AuthFormCard>
+
+                <div className="auth-secondary-actions">
+                    <Link href="/login" className="auth-inline-link">
+                        Back to Sign In
+                    </Link>
+                </div>
             </div>
-        </div>
+        </AuthShell>
     );
 }
